@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduDocs Pro - Hệ soạn thảo văn bản hành chính & Giáo án tích hợp Trợ lý AI</title>
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- PDF.js library for parsing client-side PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        
+        /* A4 document specific standards following Decree 30/2020/NĐ-CP and Education standards */
+        .document-paper {
+            font-family: 'Times New Roman', Times, serif, 'Segoe UI';
+            background-color: #ffffff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            position: relative;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 25mm 20mm 20mm 30mm; /* Standard margins: Top 25mm, Bottom 20mm, Left 30mm, Right 20mm */
+            box-sizing: border-box;
+            color: #000000;
+            line-height: 1.45;
+            font-size: 14pt;
+        }
+
+        .document-paper * {
+            outline: none;
+        }
+
+        /* Show margin boundaries helper class */
+        .show-margins {
+            background-image: 
+                linear-gradient(to right, rgba(239, 68, 68, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(239, 68, 68, 0.1) 1px, transparent 1px);
+            background-size: 210mm 297mm;
+            border: 1px dashed #ef4444 !important;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Scale container to adapt on smaller views */
+        .editor-scale-container {
+            transform-origin: top center;
+            transition: transform 0.2s ease;
+        }
+
+        [contenteditable="true"]:empty:before {
+            content: attr(placeholder);
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        [contenteditable="true"]:hover {
+            background-color: rgba(59, 130, 246, 0.03);
+            outline: 1px dashed #3b82f6;
+        }
+
+        [contenteditable="true"]:focus {
+            background-color: rgba(59, 130, 246, 0.05);
+            outline: 2px solid #3b82f6;
+        }
+
+        .ai-shimmer {
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+            background-size: 200% 100%;
+            animation: loading-shimmer 1.5s infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Print styling rules: Prints only the paper on A4 sheet */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .document-paper {
+                box-shadow: none !important;
+                margin: 0 !important;
+                border: none !important;
+                width: 210mm !important;
+                min-height: 297mm !important;
+                padding: 25mm 20mm 20mm 30mm !important;
+                background-image: none !important;
+                page-break-after: always;
+            }
+            .editor-scale-container {
+                transform: scale(1) !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden antialiased flex flex-col h-screen">
+
+    <!-- App Navigation Header (Hide on Print) -->
+    <header class="no-print bg-slate-900 text-white border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-md shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-blue-600 to-indigo-500 p-2.5 rounded-xl shadow-inner flex items-center justify-center">
+                <i class="fa-solid fa-graduation-cap text-xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight flex items-center gap-2">
+                    EduDocs Pro <span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full font-medium">Phiên Bản 2.0</span>
+                    <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> AI Giáo Án & Văn Thư
+                    </span>
+                </h1>
+                <p class="text-xs text-slate-400">Soạn thảo văn bản hành chính NĐ 30 & Thiết kế giáo án chuẩn học đường</p>
+            </div>
+        </div>
+        
+        <!-- Action Control Group -->
+        <div class="flex items-center space-x-3">
+            <div class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+                <button onclick="toggleDocMode('admin')" id="mode-btn-admin" class="px-3 py-1 rounded-md text-xs font-bold transition-all duration-200 bg-blue-600 text-white">
+                    <i class="fa-solid fa-scale-balanced mr-1"></i> Văn bản hành chính
+                </button>
+                <button onclick="toggleDocMode('lesson')" id="mode-btn-lesson" class="px-3 py-1 rounded-md text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-book-open mr-1"></i> Giáo án / Bài dạy
+                </button>
+            </div>
+
+            <button onclick="toggleMargins()" id="marginBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2" title="Bật/Tắt định vị khung lề trang giấy">
+                <i class="fa-solid fa-border-all"></i>
+                <span>Xem Khung Lề</span>
+            </button>
+            <button onclick="zoomDoc(0.1)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg text-xs transition-all" title="Phóng to">
+                <i class="fa-solid fa-magnifying-glass-plus"></i>
+            </button>
+            <button onclick="zoomDoc(-0.1)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg text-xs transition-all" title="Thu nhỏ">
+                <i class="fa-solid fa-magnifying-glass-minus"></i>
+            </button>
+            <button onclick="resetZoom()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg text-xs transition-all" title="Đặt lại cỡ 100%">
+                <span class="font-semibold text-[10px]" id="zoomText">100%</span>
+            </button>
+            <div class="h-6 w-px bg-slate-800 mx-1"></div>
+            
+            <button onclick="saveToDrafts()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Lưu Bản Nháp</span>
+            </button>
+            <button onclick="exportToPDF()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-all shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-print"></i>
+                <span>In & Xuất PDF</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area split into Interactive Form Controls & Paper Canvas -->
+    <main class="flex flex-1 overflow-hidden">
+        
+        <!-- Left Sidebar: Controls & Live Form Fields (Hide on Print) -->
+        <aside class="no-print w-96 bg-slate-50 border-r border-slate-200 flex flex-col h-full shrink-0 shadow-sm overflow-hidden">
+            <!-- Tab Headers -->
+            <div class="flex border-b border-slate-200 bg-white overflow-x-auto shrink-0 scrollbar-none">
+                <button onclick="switchTab('ai')" id="tab-ai" class="flex-1 min-w-[80px] py-3 px-2 text-center font-bold text-xs border-b-2 border-blue-600 text-blue-600 focus:outline-none flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i> Trợ Lý AI
+                </button>
+                <button onclick="switchTab('templates')" id="tab-templates" class="flex-1 min-w-[80px] py-3 px-2 text-center font-semibold text-xs border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-file-invoice"></i> Mẫu Chuẩn
+                </button>
+                <button onclick="switchTab('quickfill')" id="tab-quickfill" class="flex-1 min-w-[80px] py-3 px-2 text-center font-semibold text-xs border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-pen-to-square"></i> Điền Nhanh
+                </button>
+                <button onclick="switchTab('guide')" id="tab-guide" class="flex-1 min-w-[80px] py-3 px-2 text-center font-semibold text-xs border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-book-bookmark"></i> Hướng Dẫn
+                </button>
+            </div>
+
+            <!-- Tab Content Panel -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                
+                <!-- Tab 1: AI ASSISTANT PANEL -->
+                <div id="panel-ai" class="space-y-4">
+                    <div class="bg-gradient-to-tr from-purple-50 to-indigo-50 border border-purple-100 p-3 rounded-xl">
+                        <h4 class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-sparkles text-purple-600"></i> Trợ Lý Biên Soạn AI Học Đường Pro
+                        </h4>
+                        <p class="text-[11px] text-indigo-700 leading-relaxed mt-1">
+                            Tự động biên soạn nội dung, đề mục, kế hoạch, quyết định chuẩn Nghị định 30 hoặc thiết kế giáo án/bài dạy chi tiết theo định hướng năng lực mới của Bộ GD&ĐT.
+                        </p>
+                    </div>
+
+                    <!-- AI Mode Switcher -->
+                    <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-lg text-xs font-medium">
+                        <button id="ai-mode-new" onclick="switchAIMode('new')" class="py-1.5 px-2 text-center rounded-md bg-white text-slate-800 shadow-sm transition-all">Soạn văn bản mới</button>
+                        <button id="ai-mode-edit" onclick="switchAIMode('edit')" class="py-1.5 px-2 text-center rounded-md text-slate-500 hover:text-slate-800 transition-all">Sửa đổi văn bản</button>
+                    </div>
+
+                    <!-- Mode 1: AI Write New Document -->
+                    <div id="ai-container-new" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Loại văn bản cần lập</label>
+                            <select id="ai-doc-type" onchange="handleAIDocTypeChange(this.value)" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white">
+                                <option value="Kế hoạch">Kế hoạch nhà trường</option>
+                                <option value="Tờ trình">Tờ trình xin phê duyệt / Mua sắm</option>
+                                <option value="Quyết định">Quyết định tổ chức / Khen thưởng</option>
+                                <option value="Công văn">Công văn triệu tập / Đôn đốc</option>
+                                <option value="Báo cáo">Báo cáo hoạt động / Tổng kết</option>
+                                <option value="Giáo án">Giáo án giảng dạy (Bài dạy)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ý tưởng hoặc chủ đề chi tiết</label>
+                            <textarea id="ai-prompt-new" rows="5" placeholder="Ví dụ: Kế hoạch tổ chức Tuần lễ Học tập suốt đời... hoặc Giáo án bài 1 Tin học lớp 10 khái niệm thông tin và dữ liệu..." class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 leading-relaxed"></textarea>
+                        </div>
+
+                        <!-- Quick suggestion pills based on document types -->
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 block mb-1">GỢI Ý Ý TƯỞNG NHANH</span>
+                            <div id="suggestion-pills" class="flex flex-wrap gap-1">
+                                <!-- Will be loaded dynamically. Initial are for admin docs -->
+                                <button onclick="setAIPromptNew('Kế hoạch', 'Kế hoạch tổ chức Ngày Hội Sách học đường năm 2026, quyên góp sách cũ xây dựng thư viện xanh')" class="text-[10px] bg-white border border-slate-200 hover:border-purple-300 text-slate-600 px-2 py-1 rounded-full text-left truncate max-w-full">📚 Ngày Hội Sách học đường</button>
+                                <button onclick="setAIPromptNew('Giáo án', 'Giáo án bài 5 Tin học 10: Thực hành ứng dụng văn phòng với bảng tính, thời lượng 2 tiết')" class="text-[10px] bg-white border border-slate-200 hover:border-purple-300 text-slate-600 px-2 py-1 rounded-full text-left truncate max-w-full">📝 Giáo án Tin học 10</button>
+                                <button onclick="setAIPromptNew('Quyết định', 'Quyết định thành lập Hội đồng Ban giám khảo cuộc thi Nghiên cứu khoa học kỹ thuật học sinh')" class="text-[10px] bg-white border border-slate-200 hover:border-purple-300 text-slate-600 px-2 py-1 rounded-full text-left truncate max-w-full">⚖️ Quyết định lập hội đồng thi</button>
+                                <button onclick="setAIPromptNew('Giáo án', 'Giáo án Ngữ văn 11: Bài học Chiếc thuyền ngoài xa của Nguyễn Minh Châu - Tiết 1')" class="text-[10px] bg-white border border-slate-200 hover:border-purple-300 text-slate-600 px-2 py-1 rounded-full text-left truncate max-w-full">📚 Giáo án Ngữ văn 11</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode 2: AI Edit/Enhance Existing Document -->
+                    <div id="ai-container-edit" class="space-y-3 hidden">
+                        <div class="bg-amber-50 border border-amber-100 p-2.5 rounded-lg text-[11px] text-amber-800 leading-relaxed">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> AI sẽ sửa đổi trực tiếp phần nội dung cốt lõi của giáo án hoặc văn bản hành chính theo hướng dẫn bên dưới.
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Yêu cầu chỉnh sửa cụ thể</label>
+                            <textarea id="ai-prompt-edit" rows="4" placeholder="Ví dụ: Thêm phần mục IV bàn về ngân quỹ dự chi tầm 20 triệu đồng; hoặc Đối với giáo án, hãy thêm 1 hoạt động trò chơi trắc nghiệm ngắn khởi động..." class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 leading-relaxed"></textarea>
+                        </div>
+
+                        <!-- Edit suggestions -->
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 block mb-1">CHỈ DẪN NHANH</span>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <button onclick="setAIPromptEdit('Hãy sửa lỗi chính tả, cải thiện câu cú tiếng Việt chuẩn hành chính trong toàn văn bản')" class="text-[10px] text-left bg-white border border-slate-200 p-1.5 rounded-lg hover:border-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-spell-check text-blue-500"></i> Sửa chính tả</button>
+                                <button onclick="setAIPromptEdit('Hãy bổ sung 1 trò chơi đố vui bằng bảng hỏi 5 câu trắc nghiệm để mở đầu cho bài học này')" class="text-[10px] text-left bg-white border border-slate-200 p-1.5 rounded-lg hover:border-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-puzzle-piece text-emerald-500"></i> Thêm trò chơi bài học</button>
+                                <button onclick="setAIPromptEdit('Hãy lập một bảng biểu chi tiết phân công công tác trong phần nội dung thực hiện gồm các cột STT, Công việc, Phân công, Tiến độ')" class="text-[10px] text-left bg-white border border-slate-200 p-1.5 rounded-lg hover:border-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-table text-amber-500"></i> Lập bảng phân công</button>
+                                <button onclick="setAIPromptEdit('Hãy viết tiếp nội dung hoạt động luyện tập thêm các câu hỏi trắc nghiệm khách quan tư duy cao')" class="text-[10px] text-left bg-white border border-slate-200 p-1.5 rounded-lg hover:border-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-brain text-purple-500"></i> Câu hỏi tư duy cao</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Upload reference source section -->
+                    <div class="pt-3 border-t border-slate-200">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                            <span class="flex items-center gap-1"><i class="fa-solid fa-paperclip text-indigo-500"></i> Nguồn tham khảo (Tải lên)</span>
+                            <span class="text-[9px] text-slate-400 font-normal">Hỗ trợ PDF, Ảnh, TXT</span>
+                        </label>
+                        <div id="upload-dropzone" class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-3 text-center cursor-pointer bg-white hover:bg-slate-50/50 transition-all duration-200 relative">
+                            <input type="file" id="ref-file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.txt" onchange="handleReferenceUpload(this)">
+                            <div id="dropzone-prompt" class="space-y-1">
+                                <i class="fa-solid fa-file-arrow-up text-slate-400 text-lg"></i>
+                                <p class="text-[10px] font-medium text-slate-600">Thả file hoặc nhấp để tải tài liệu lên</p>
+                                <p class="text-[8px] text-slate-400">PDF, Hình ảnh giáo trình, Sách giáo khoa, Đề cương</p>
+                            </div>
+                            <div id="dropzone-success" class="hidden flex items-center justify-between bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-lg text-left">
+                                <div class="flex items-center space-x-2 min-w-0">
+                                    <div id="ref-icon-container" class="bg-indigo-600 text-white p-1.5 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+                                        <i id="ref-icon" class="fa-solid fa-file-pdf text-xs"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p id="ref-file-name" class="text-[10px] font-bold text-slate-800 truncate leading-tight"></p>
+                                        <p id="ref-file-status" class="text-[8px] text-indigo-600 leading-none mt-0.5 font-medium">Đã phân tích nguồn dẫn</p>
+                                    </div>
+                                </div>
+                                <button onclick="removeReference(event)" class="text-slate-400 hover:text-red-500 p-1 shrink-0 transition-colors" title="Gỡ tài liệu này">
+                                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Text extraction preview container -->
+                        <div id="ref-preview-box" class="hidden mt-1.5 p-2 bg-slate-100/70 border border-slate-200 rounded-lg max-h-16 overflow-y-auto">
+                            <span class="text-[8px] font-bold text-slate-400 block mb-0.5 uppercase tracking-wider">Xem trước nguồn trích dẫn:</span>
+                            <p id="ref-preview-text" class="text-[9px] text-slate-500 leading-normal line-clamp-2"></p>
+                        </div>
+                    </div>
+
+                    <!-- API Key Override (Strictly optional) -->
+                    <div class="pt-2 border-t border-slate-100">
+                        <details class="text-[11px] text-slate-500 cursor-pointer">
+                            <summary class="hover:text-slate-700">Tùy chọn API Key cá nhân</summary>
+                            <div class="mt-1.5">
+                                <input type="password" id="custom-api-key" placeholder="Nhập API Key Gemini của bạn (nếu có)" class="w-full text-[10px] px-2.5 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-indigo-400">
+                                <p class="text-[9px] text-slate-400 mt-1">Để trống để sử dụng hạn ngạch hệ thống mặc định miễn phí.</p>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Execute AI Button -->
+                    <button onclick="triggerAIEngine()" id="ai-generate-btn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span id="ai-btn-text">Bắt Đầu Tạo Với Trợ Lý AI</span>
+                    </button>
+                </div>
+
+                <!-- Tab 2: TEMPLATES SELECTOR -->
+                <div id="panel-templates" class="space-y-4 hidden">
+                    <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg">
+                        <p class="text-[11px] text-blue-700 leading-relaxed font-medium">
+                            <i class="fa-solid fa-circle-info mr-1"></i> Nhấp chọn một mẫu dưới đây để nạp trực tiếp bộ khung soạn thảo thông minh chuẩn hóa tương ứng.
+                        </p>
+                    </div>
+
+                    <!-- Template Cards Container -->
+                    <div class="space-y-2.5">
+                        <div onclick="loadTemplate('giaoan')" class="group cursor-pointer bg-purple-50 hover:bg-purple-100/50 p-3.5 rounded-xl border border-purple-200 hover:border-purple-400 transition-all shadow-sm flex items-start gap-3">
+                            <div class="bg-purple-600 text-white p-2.5 rounded-lg group-hover:bg-purple-700 transition-all">
+                                <i class="fa-solid fa-book-bookmark text-base"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-purple-900 text-sm group-hover:text-purple-700 transition-all">Giáo Án Giảng Dạy Chuẩn</h3>
+                                <p class="text-xs text-purple-700 mt-0.5 font-medium">Cấu trúc bài dạy định hướng phát triển năng lực mới của Bộ GD&ĐT.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="loadTemplate('kehoach')" class="group cursor-pointer bg-white hover:bg-blue-50/50 p-3.5 rounded-xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm flex items-start gap-3">
+                            <div class="bg-amber-100 text-amber-700 p-2.5 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-all">
+                                <i class="fa-solid fa-calendar-check text-base"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-all">Kế Hoạch Nhà Trường</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Kế hoạch năm học, tổ chức sự kiện chuyên đề...</p>
+                            </div>
+                        </div>
+
+                        <div onclick="loadTemplate('totrinh')" class="group cursor-pointer bg-white hover:bg-blue-50/50 p-3.5 rounded-xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm flex items-start gap-3">
+                            <div class="bg-blue-100 text-blue-700 p-2.5 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-all">
+                                <i class="fa-solid fa-file-signature text-base"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-all">Tờ Trình Phê Duyệt</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Tờ trình xin cấp kinh phí, duyệt mua thiết bị, sửa chữa...</p>
+                            </div>
+                        </div>
+
+                        <div onclick="loadTemplate('quyetdinh')" class="group cursor-pointer bg-white hover:bg-blue-50/50 p-3.5 rounded-xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm flex items-start gap-3">
+                            <div class="bg-red-100 text-red-700 p-2.5 rounded-lg group-hover:bg-red-500 group-hover:text-white transition-all">
+                                <i class="fa-solid fa-gavel text-base"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-all">Quyết Định Tổ Chức</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Quyết định thành lập hội đồng, ban khen thưởng...</p>
+                            </div>
+                        </div>
+
+                        <div onclick="loadTemplate('congvan')" class="group cursor-pointer bg-white hover:bg-blue-50/50 p-3.5 rounded-xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm flex items-start gap-3">
+                            <div class="bg-emerald-100 text-emerald-700 p-2.5 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                                <i class="fa-solid fa-envelope-open-text text-base"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-all">Công Văn Điều Hành</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Công văn triệu tập, thông báo họp, phối hợp...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Draft recovery panel -->
+                    <div id="draftContainer" class="bg-slate-100 p-3 rounded-xl border border-slate-200 mt-6 hidden">
+                        <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-2">
+                            <i class="fa-solid fa-floppy-disk text-slate-500"></i> Bản nháp đã lưu tại máy
+                        </h4>
+                        <div id="draftsList" class="space-y-1.5 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: QUICK FILL CONTROLS -->
+                <div id="panel-quickfill" class="space-y-4 hidden">
+                    <p class="text-xs text-slate-500 leading-relaxed mb-4">
+                        Điền nhanh các thông số chính để tự động phân phối chuẩn vào bố cục tương ứng trên trang giấy.
+                    </p>
+
+                    <!-- Administrative Specific Fields (Toggle visibility based on mode) -->
+                    <div id="quickfill-admin-fields" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cơ quan chủ quản cấp trên</label>
+                            <input type="text" id="inp-subhead" oninput="syncField('subhead', this.value)" placeholder="SỞ GIÁO DỤC VÀ ĐÀO TẠO..." class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tên đơn vị, nhà trường</label>
+                            <input type="text" id="inp-school" oninput="syncField('school', this.value)" placeholder="TRƯỜNG THPT CHUYÊN..." class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Số ký hiệu văn bản</label>
+                                <input type="text" id="inp-docnumber" oninput="syncField('docnumber', this.value)" placeholder="Số: 124/KH-THPT" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Địa danh ban hành</label>
+                                <input type="text" id="inp-location" oninput="syncField('location', this.value)" placeholder="Hà Nội" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Quyền hạn / Chức vụ người ký</label>
+                            <input type="text" id="inp-signer-title" oninput="syncField('signer-title', this.value)" placeholder="HIỆU TRƯỞNG" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Họ và tên người ký</label>
+                            <input type="text" id="inp-signer-name" oninput="syncField('signer-name', this.value)" placeholder="Nguyễn Văn A" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nơi nhận (Xuống dòng cho mỗi nơi)</label>
+                            <textarea id="inp-recipients" oninput="syncRecipients(this.value)" placeholder="Sở GD&ĐT (để b/c);&#10;Ban Giám hiệu;&#10;Lưu: VT, VP." rows="3" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Lesson Plan Specific Fields -->
+                    <div id="quickfill-lesson-fields" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tên đơn vị, trường học</label>
+                            <input type="text" id="inp-lesson-school" oninput="syncLessonField('school', this.value)" placeholder="TRƯỜNG THPT NGUYỄN DU" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tổ chuyên môn phụ trách</label>
+                            <input type="text" id="inp-lesson-dept" oninput="syncLessonField('dept', this.value)" placeholder="Tổ chuyên môn: Toán - Tin học" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Tuần học</label>
+                                <input type="text" id="inp-lesson-week" oninput="syncLessonField('week', this.value)" placeholder="Ví dụ: Tuần 12" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Tiết phân phối chương trình</label>
+                                <input type="text" id="inp-lesson-period" oninput="syncLessonField('period', this.value)" placeholder="Ví dụ: Tiết 24" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Lớp giảng dạy</label>
+                                <input type="text" id="inp-lesson-class" oninput="syncLessonField('class', this.value)" placeholder="10A1, 10A2" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Ngày soạn giáo án</label>
+                                <input type="text" id="inp-lesson-prepdate" oninput="syncLessonField('prepdate', this.value)" placeholder="18/10/2026" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                            </div>
+                        </div>
+
+                        <div class="h-px bg-slate-200 my-2"></div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Giáo viên biên soạn</label>
+                            <input type="text" id="inp-lesson-teacher" oninput="syncLessonField('teacher', this.value)" placeholder="Nguyễn Văn Thắng" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cán bộ / Tổ trưởng duyệt giáo án</label>
+                            <input type="text" id="inp-lesson-approver" oninput="syncLessonField('approver', this.value)" placeholder="Trần Thị Lan" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white">
+                        </div>
+                    </div>
+
+                    <!-- Shared Fields -->
+                    <div class="space-y-3 pt-3 border-t border-slate-200">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ngày tháng ban hành văn bản</label>
+                            <input type="date" id="inp-date" onchange="syncDate(this.value)" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tên văn bản / Tiêu đề giáo án</label>
+                            <textarea id="inp-title" oninput="syncField('title', this.value)" placeholder="TIÊU ĐỀ..." rows="2" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 font-semibold bg-white"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: GUIDE & HELP -->
+                <div id="panel-guide" class="space-y-4 hidden">
+                    <div class="bg-gradient-to-tr from-slate-900 to-slate-800 text-white p-4 rounded-xl shadow-md">
+                        <h4 class="font-bold text-sm text-yellow-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-scale-balanced"></i> Quy Chuẩn Hoàn Hảo
+                        </h4>
+                        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+                            EduDocs Pro hỗ trợ đắc lực hai khối công việc văn thư và sư phạm phổ thông.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3.5 text-xs text-slate-600 leading-relaxed">
+                        <div class="border-l-2 border-purple-500 pl-3">
+                            <span class="font-bold text-slate-800 block">Chuẩn Giáo án mới (Bài dạy):</span>
+                            Tổ chức theo các hoạt động định hướng phát triển năng lực của Bộ Giáo dục. Thiết kế mục tiêu 3 phần: Kiến thức, Năng lực, Phẩm chất. Tiến trình học tập chia thành các pha Khởi động, Khám phá, Luyện tập và Vận dụng.
+                        </div>
+
+                        <div class="border-l-2 border-blue-500 pl-3">
+                            <span class="font-bold text-slate-800 block">Khổ giấy & Căn lề NĐ 30:</span>
+                            Khổ A4 (210mm x 297mm). Lề trên: 20-25mm; Lề dưới: 20-25mm; Lề trái: 30-35mm; Lề phải: 15-20mm. Font chữ quy định chân phương Times New Roman cỡ 13-14pt.
+                        </div>
+
+                        <div class="border-l-2 border-amber-500 pl-3">
+                            <span class="font-bold text-slate-800 block">Đường kẻ tiêu ngữ:</span>
+                            Đường kẻ dưới câu "Độc lập - Tự do - Hạnh phúc" có chiều dài khớp đúng 100% dòng chữ. Đường kẻ dưới cơ quan ban hành dài từ 1/3 đến 1/2 tên cơ quan.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Rich-text editor tools inside sidebar -->
+            <div class="border-t border-slate-200 p-3 bg-white">
+                <span class="text-[10px] font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">Hỗ trợ soạn thảo nhanh</span>
+                <div class="grid grid-cols-4 gap-1">
+                    <button onclick="formatDoc('bold')" class="p-2 hover:bg-slate-100 rounded-lg text-slate-700 text-xs font-semibold flex flex-col items-center" title="Bôi đậm"><i class="fa-solid fa-bold text-slate-600 mb-0.5"></i>Đậm</button>
+                    <button onclick="formatDoc('italic')" class="p-2 hover:bg-slate-100 rounded-lg text-slate-700 text-xs font-semibold flex flex-col items-center" title="In nghiêng"><i class="fa-solid fa-italic text-slate-600 mb-0.5"></i>Nghiêng</button>
+                    <button onclick="formatDoc('underline')" class="p-2 hover:bg-slate-100 rounded-lg text-slate-700 text-xs font-semibold flex flex-col items-center" title="Gạch chân"><i class="fa-solid fa-underline text-slate-600 mb-0.5"></i>Gạch</button>
+                    <button onclick="insertTable()" class="p-2 hover:bg-slate-100 rounded-lg text-slate-700 text-xs font-semibold flex flex-col items-center" title="Chèn bảng biểu mẫu"><i class="fa-solid fa-table text-slate-600 mb-0.5"></i>Bảng</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center/Right Space: Interactive Paper Canvas Screen with zoom scroll capabilities -->
+        <section class="flex-1 bg-slate-200 overflow-auto flex justify-center items-start p-8 relative">
+            
+            <div id="scaleWrapper" class="editor-scale-container shadow-2xl transition-all duration-300 relative">
+                
+                <!-- AI Loader Animation overlay -->
+                <div id="ai-loading-overlay" class="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-40 flex flex-col items-center justify-center hidden rounded-lg">
+                    <div class="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center space-y-4 max-w-sm border border-purple-100">
+                        <div class="relative w-16 h-16 flex items-center justify-center">
+                            <div class="absolute inset-0 border-4 border-purple-200 rounded-full"></div>
+                            <div class="absolute inset-0 border-4 border-t-purple-600 rounded-full animate-spin"></div>
+                            <i class="fa-solid fa-wand-magic-sparkles text-xl text-purple-600 animate-pulse"></i>
+                        </div>
+                        <div class="text-center">
+                            <h4 class="font-bold text-sm text-slate-800">Trợ Lý AI đang xử lý...</h4>
+                            <p class="text-xs text-slate-500 mt-1">Đang thiết lập và dàn trang chuẩn định dạng chuyên môn. Thầy cô vui lòng chờ trong giây lát.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Standard A4 Document Paper -->
+                <article class="document-paper" id="paper">
+                    
+                    <!-- DYNAMIC HEADER 1: ADMINISTRATIVE DECREE 30 HEADER -->
+                    <div id="header-admin" class="grid grid-cols-12 gap-2 mb-8 items-start text-center">
+                        <!-- Left Header (School Name / Subheader) -->
+                        <div class="col-span-5 flex flex-col items-center text-center">
+                            <div id="lbl-subhead" contenteditable="true" placeholder="SỞ GIÁO DỤC VÀ ĐÀO TẠO..." class="text-[12pt] font-normal uppercase leading-tight w-full tracking-wide">UBND PHƯỜNG HÀ GIANG 1</div>
+                            <div id="lbl-school" contenteditable="true" placeholder="TÊN TRƯỜNG..." class="text-[12pt] font-bold uppercase leading-tight w-full tracking-wide">TRƯỜNG THCS PHƯƠNG THIỆN</div>
+                            
+                            <!-- Standard underline line under Department/School ( Decree 30 standard: width 1/3 - 1/2 ) -->
+                            <div class="w-1/3 border-b-2 border-black mt-1"></div>
+                            
+                            <!-- Document Number / Code -->
+                            <div id="lbl-docnumber" contenteditable="true" placeholder="Số: .../KH-THPT" class="text-[12pt] font-normal mt-2 leading-tight">Số: 145/KH-THCS</div>
+                        </div>
+
+                        <!-- Right Header (National Motto & Independence) -->
+                        <div class="col-span-7 flex flex-col items-center text-center">
+                            <div class="text-[12pt] font-bold uppercase tracking-normal leading-normal">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                            <div class="text-[13pt] font-bold leading-normal">Độc lập - Tự do - Hạnh phúc</div>
+                            
+                            <!-- Standard underline under national motto ( Decree 30 standard: full width ) -->
+                            <div class="w-[60%] border-b border-black mt-1"></div>
+                            
+                            <!-- Location and Date -->
+                            <div class="text-[13pt] italic font-normal mt-2 text-right w-full pr-4">
+                                <span id="lbl-location" contenteditable="true" placeholder="Địa danh">Hà Giang</span>, 
+                                ngày <span id="lbl-day" contenteditable="true" placeholder="ngày">18</span> 
+                                tháng <span id="lbl-month" contenteditable="true" placeholder="tháng">10</span> 
+                                năm <span id="lbl-year" contenteditable="true" placeholder="năm">2026</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DYNAMIC HEADER 2: ACADEMIC LESSON PLAN HEADER (Hidden by Default) -->
+                    <div id="header-lesson" class="grid grid-cols-12 gap-2 mb-8 items-start text-center hidden">
+                        <!-- Left Header (School + Subject) -->
+                        <div class="col-span-6 text-left border-r border-slate-300 pr-4">
+                            <div id="lbl-lesson-school" contenteditable="true" placeholder="Tên đơn vị trường học" class="text-[12pt] font-bold uppercase tracking-wide">TRƯỜNG THCS PHƯƠNG THIỆN</div>
+                            <div id="lbl-lesson-dept" contenteditable="true" placeholder="Tổ bộ môn..." class="text-[11pt] font-medium text-slate-800 italic mt-1">Tổ chuyên môn: Toán - Tin học</div>
+                        </div>
+                        
+                        <!-- Right Header (Lesson Context Metadata) -->
+                        <div class="col-span-6 text-right pl-4 text-[11pt] space-y-1">
+                            <div><strong>Tuần học:</strong> <span id="lbl-lesson-week" contenteditable="true" placeholder="Tuần">Tuần 12</span> | <strong>Tiết PPCT:</strong> <span id="lbl-lesson-period" contenteditable="true" placeholder="Tiết">Tiết 24</span></div>
+                            <div><strong>Lớp giảng dạy:</strong> <span id="lbl-lesson-class" contenteditable="true" placeholder="Khối lớp">8A1, 8A2</span></div>
+                            <div><strong>Ngày soạn dạy:</strong> <span id="lbl-lesson-prepdate" contenteditable="true" placeholder="Ngày soạn">18/10/2026</span></div>
+                        </div>
+                        <div class="col-span-12 border-b border-black mt-2"></div>
+                    </div>
+
+                    <!-- Document Title / Trích Yếu Section -->
+                    <div class="text-center my-6">
+                        <h2 id="lbl-title" contenteditable="true" placeholder="KẾ HOẠCH / TỜ TRÌNH / QUYẾT ĐỊNH / GIÁO ÁN..." class="text-[15pt] font-bold uppercase leading-snug tracking-wide max-w-[90%] mx-auto">
+                            KẾ HOẠCH<br>TỔ CHỨC HOẠT ĐỘNG NGOẠI KHÓA GIÁO DỤC KỸ NĂNG SỐNG CHO HỌC SINH TRƯỜNG THCS PHƯƠNG THIỆN NĂM HỌC 2026 - 2027
+                        </h2>
+                    </div>
+
+                    <!-- Main Body Content Area (Completely Rich-editable & Template-driven) -->
+                    <div id="document-body" contenteditable="true" class="text-[14pt] leading-relaxed text-justify space-y-4 focus:outline-none min-h-[400px]">
+                        <p class="indent-[1.27cm]">Căn cứ Chỉ thị nhiệm vụ năm học của Bộ Giáo dục và Đào tạo và các văn bản chỉ đạo của Phòng Giáo dục và Đào tạo thành phố Hà Giang;</p>
+                        <p class="indent-[1.27cm]">Căn cứ vào tình hình thực tế và mục tiêu đào tạo, rèn luyện kỹ năng mềm cho học sinh toàn diện;</p>
+                        <p class="indent-[1.27cm]">Ban Giám hiệu Trường THCS Phương Thiện xây dựng kế hoạch triển khai cụ thể hoạt động như sau:</p>
+                        
+                        <p class="font-bold mt-4">I. MỤC ĐÍCH, YÊU CẦU</p>
+                        <p class="indent-[1.27cm]"><strong>1. Mục đích:</strong> Nâng cao khả năng ứng xử xã hội, kỹ năng tự vệ, tinh thần làm việc nhóm và kiến thức thực tiễn cuộc sống cho học sinh toàn trường.</p>
+                        <p class="indent-[1.27cm]"><strong>2. Yêu cầu:</strong> 100% các khối lớp THCS Phương Thiện tham gia đầy đủ, bảo đảm an toàn tuyệt đối, tiết kiệm, ý nghĩa và bổ ích.</p>
+
+                        <p class="font-bold mt-4">II. NỘI DUNG VÀ THỜI GIAN THỰC HIỆN</p>
+                        <table class="w-full border-collapse border border-black my-4 text-[13pt]">
+                            <thead>
+                                <tr class="bg-slate-50">
+                                    <th class="border border-black p-2 text-center font-bold w-1/12">STT</th>
+                                    <th class="border border-black p-2 text-center font-bold w-5/12">Nội dung công việc</th>
+                                    <th class="border border-black p-2 text-center font-bold w-3/12">Người chịu trách nhiệm</th>
+                                    <th class="border border-black p-2 text-center font-bold w-3/12">Tiến độ thực hiện</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="border border-black p-2 text-center">1</td>
+                                    <td class="border border-black p-2">Lập ban tổ chức chương trình ngoại khóa trường THCS Phương Thiện</td>
+                                    <td class="border border-black p-2">Phó Hiệu trưởng chuyên môn</td>
+                                    <td class="border border-black p-2 text-center">Tuần 1 tháng 11</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-black p-2 text-center">2</td>
+                                    <td class="border border-black p-2">Thuê chuyên gia kỹ năng sống & chuẩn bị cơ sở vật chất sân trường</td>
+                                    <td class="border border-black p-2">Liên đội thiếu niên tiền phong, Tổ bảo vệ</td>
+                                    <td class="border border-black p-2 text-center">Trước ngày 15/11</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <p class="font-bold mt-4">III. TỔ CHỨC THỰC HIỆN</p>
+                        <p class="indent-[1.27cm]">Nhà trường đề nghị các Tổ trưởng chuyên môn, Tổng phụ trách Đội, Giáo viên chủ nhiệm các lớp đôn đốc học sinh tham gia nghiêm túc, lập danh sách nộp về Văn phòng trường trước kỳ hạn.</p>
+                    </div>
+
+                    <!-- FOOTER SECTION 1: DECREE 30 SIGNATURES & RECIPIENTS (Visible for standard Admin Docs) -->
+                    <div id="footer-admin" class="grid grid-cols-12 gap-4 mt-12 pt-6 items-start break-inside-avoid">
+                        <!-- Left column: Recipients (Nơi nhận) -->
+                        <div class="col-span-5 text-[11pt] leading-normal self-start">
+                            <span class="font-bold italic">Nơi nhận:</span>
+                            <div id="lbl-recipients" contenteditable="true" placeholder="Nơi nhận văn bản" class="pl-2 mt-1 space-y-0.5">
+                                <div>- UBND Phường Hà Giang 1 (để b/c);</div>
+                                <div>- Ban Giám hiệu;</div>
+                                <div>- Liên đội trường;</div>
+                                <div>- GVCN các lớp;</div>
+                                <div>- Lưu: VT, VP trường.</div>
+                            </div>
+                        </div>
+
+                        <!-- Right column: Signing Authority (Quyền hạn/Người ký) -->
+                        <div class="col-span-7 flex flex-col items-center text-center">
+                            <div id="lbl-signer-title" contenteditable="true" placeholder="QUYỀN HẠN/HIỆU TRƯỞNG" class="text-[13pt] font-bold uppercase tracking-wider leading-tight w-full">HIỆU TRƯỞNG</div>
+                            
+                            <div class="h-28 flex items-center justify-center text-xs text-slate-300 select-none italic">
+                                (Ký, ghi rõ họ tên & đóng dấu)
+                            </div>
+                            
+                            <div id="lbl-signer-name" contenteditable="true" placeholder="Họ và tên người ký" class="text-[13pt] font-bold w-full">Nguyễn Thanh Hà</div>
+                        </div>
+                    </div>
+
+                    <!-- FOOTER SECTION 2: LESSON PLAN APPROVER & TEACHER SIGNATURES (Visible for Lesson Plans) -->
+                    <div id="footer-lesson" class="grid grid-cols-12 gap-4 mt-12 pt-6 items-start break-inside-avoid hidden">
+                        <!-- Left column: Approver (Tổ trưởng / BGH) -->
+                        <div class="col-span-6 flex flex-col items-center text-center">
+                            <div class="text-[12pt] font-bold uppercase tracking-wide">PHÊ DUYỆT CỦA TỔ TRƯỞNG CHUYÊN MÔN</div>
+                            <div class="text-[11pt] italic text-slate-400 mt-1">(Ký, nhận xét và ghi rõ họ tên)</div>
+                            <div class="h-24"></div>
+                            <div id="lbl-lesson-approver" contenteditable="true" placeholder="Họ tên cán bộ duyệt" class="text-[12pt] font-bold w-full">Trần Thị Lan</div>
+                        </div>
+
+                        <!-- Right column: Teacher soạn giáo án -->
+                        <div class="col-span-6 flex flex-col items-center text-center">
+                            <div class="text-[12pt] font-bold uppercase tracking-wide">GIÁO VIÊN SOẠN DẠY</div>
+                            <div class="text-[11pt] italic text-slate-400 mt-1">(Ký và ghi rõ họ tên)</div>
+                            <div class="h-24"></div>
+                            <div id="lbl-lesson-teacher" contenteditable="true" placeholder="Họ tên giáo viên giảng dạy" class="text-[12pt] font-bold w-full">Nguyễn Thanh Hà</div>
+                        </div>
+                    </div>
+
+                </article>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Custom Modal/Toast alert box (replaces forbidden alerts) -->
+    <div id="toast" class="no-print fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center space-x-3 transform translate-y-24 opacity-0 transition-all duration-300 z-50">
+        <div id="toast-icon" class="bg-blue-500 text-white p-2 rounded-lg flex items-center justify-center">
+            <i class="fa-solid fa-bell"></i>
+        </div>
+        <div>
+            <h4 id="toast-title" class="font-bold text-xs">Thông báo</h4>
+            <p id="toast-message" class="text-[11px] text-slate-300 mt-0.5 max-w-[280px]">Nội dung thông báo chi tiết</p>
+        </div>
+    </div>
+
+    <script>
+        // System state variables
+        let currentZoom = 1.0;
+        let aiMode = 'new'; // 'new' or 'edit'
+        let docMode = 'admin'; // 'admin' (Decree 30) or 'lesson' (Giáo án)
+        
+        // Uploaded Reference Document State
+        let referenceSource = {
+            type: null,     // 'text' or 'image'
+            data: null,     // Text contents OR Base64 (cleaned without mime)
+            name: null,     // Filename
+            mimeType: null  // Mimetype for images
+        };
+
+        const scaleWrapper = document.getElementById('scaleWrapper');
+        const zoomText = document.getElementById('zoomText');
+
+        // Initial setup on window load
+        window.onload = function() {
+            // Auto setup today's date into the date picker and document
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            
+            document.getElementById('inp-date').value = `${year}-${month}-${day}`;
+            document.getElementById('lbl-day').innerText = day;
+            document.getElementById('lbl-month').innerText = month;
+            document.getElementById('lbl-year').innerText = year;
+
+            // Configure PDFJS global worker
+            if (typeof pdfjsLib !== 'undefined') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            }
+
+            // Drag and drop events setup for upload dropzone
+            const dropzone = document.getElementById('upload-dropzone');
+            if (dropzone) {
+                dropzone.addEventListener('click', (e) => {
+                    if (e.target.closest('button')) return;
+                    document.getElementById('ref-file-input').click();
+                });
+                
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('border-indigo-400', 'bg-indigo-50/30');
+                });
+                
+                dropzone.addEventListener('dragleave', () => {
+                    dropzone.classList.remove('border-indigo-400', 'bg-indigo-50/30');
+                });
+                
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-indigo-400', 'bg-indigo-50/30');
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        const fileInput = document.getElementById('ref-file-input');
+                        fileInput.files = e.dataTransfer.files;
+                        handleReferenceUpload(fileInput);
+                    }
+                });
+            }
+
+            // Load saved drafts on start
+            loadSavedDraftsList();
+
+            // Populate the input forms based on the default Kế hoạch template initially loaded on page
+            populateInputsFromPreview();
+        };
+
+        // Handle document/image file upload processing
+        async function handleReferenceUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const name = file.name;
+            const ext = name.split('.').pop().toLowerCase();
+            
+            // Adjust visual states
+            document.getElementById('dropzone-prompt').classList.add('hidden');
+            document.getElementById('dropzone-success').classList.remove('hidden');
+            document.getElementById('ref-file-name').innerText = name;
+            document.getElementById('ref-file-status').innerText = "Đang xử lý nạp tài liệu...";
+            document.getElementById('ref-file-status').className = "text-[8px] text-amber-600 leading-none mt-0.5";
+            document.getElementById('ref-preview-box').classList.add('hidden');
+
+            const iconEl = document.getElementById('ref-icon');
+            const iconContainer = document.getElementById('ref-icon-container');
+            iconContainer.className = "bg-amber-500 text-white p-1.5 rounded-lg flex items-center justify-center shrink-0 shadow-sm";
+
+            try {
+                if (ext === 'pdf') {
+                    iconEl.className = "fa-solid fa-file-pdf text-xs";
+                    const text = await extractPdfText(file);
+                    referenceSource = { type: 'text', data: text, name: name, mimeType: null };
+                    showUploadSuccess(name, text.substring(0, 400) + "...");
+                } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+                    iconEl.className = "fa-solid fa-file-image text-xs";
+                    const base64Data = await fileToBase64(file);
+                    // Standard raw base64 extraction
+                    const cleanBase64 = base64Data.split(',')[1];
+                    referenceSource = { type: 'image', data: cleanBase64, mimeType: file.type, name: name };
+                    showUploadSuccess(name, "[Nguồn ảnh trực quan đã sẵn sàng. Trợ lý AI sẽ đọc trực tiếp nội dung trong ảnh này để phản hồi.]");
+                } else if (ext === 'txt') {
+                    iconEl.className = "fa-solid fa-file-lines text-xs";
+                    const text = await readFileAsText(file);
+                    referenceSource = { type: 'text', data: text, name: name, mimeType: null };
+                    showUploadSuccess(name, text.substring(0, 400) + "...");
+                } else {
+                    showToast("Định dạng không hỗ trợ", "Chương trình hỗ trợ đính kèm tệp PDF, Văn bản .txt hoặc ảnh chụp tài liệu.", "fa-triangle-exclamation");
+                    resetUploadZone();
+                }
+            } catch (err) {
+                console.error("File processing error: ", err);
+                showToast("Lỗi nạp tệp", "Không thể trích lọc dữ liệu từ tệp tin đã chọn.", "fa-triangle-exclamation");
+                resetUploadZone();
+            }
+        }
+
+        // Parse and extract PDF pages to text directly inside user's browser
+        function extractPdfText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    try {
+                        const typedarray = new Uint8Array(this.result);
+                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        let extractedText = "";
+                        const maxPages = Math.min(pdf.numPages, 10); // Limit processing to first 10 pages for performance
+                        
+                        for (let i = 1; i <= maxPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            extractedText += `[TRANG HỌC LIỆU ${i}]\n` + pageText + "\n";
+                        }
+                        resolve(extractedText);
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Helper to read plain text files
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        // Convert files to clean base64 data URLs
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Success state render
+        function showUploadSuccess(fileName, previewText) {
+            document.getElementById('ref-file-status').innerText = "Đã nạp làm nguồn tham khảo";
+            document.getElementById('ref-file-status').className = "text-[8px] text-emerald-600 leading-none mt-0.5 font-medium";
+            document.getElementById('ref-icon-container').className = "bg-emerald-500 text-white p-1.5 rounded-lg flex items-center justify-center shrink-0 shadow-sm";
+            
+            const previewBox = document.getElementById('ref-preview-box');
+            const previewTextEl = document.getElementById('ref-preview-text');
+            previewBox.classList.remove('hidden');
+            previewTextEl.innerText = previewText;
+            
+            showToast("Đã liên kết nguồn dẫn", `Văn bản "${fileName}" sẵn sàng cung cấp nguồn ngữ liệu cho AI.`, "fa-circle-check");
+        }
+
+        // Reset and clear reference upload zone
+        function removeReference(event) {
+            if (event) event.stopPropagation();
+            resetUploadZone();
+            showToast("Gỡ tài liệu", "Đã ngắt liên kết nguồn dẫn của tệp tham khảo.", "fa-trash-can");
+        }
+
+        function resetUploadZone() {
+            referenceSource = { type: null, data: null, name: null, mimeType: null };
+            document.getElementById('ref-file-input').value = '';
+            document.getElementById('dropzone-prompt').classList.remove('hidden');
+            document.getElementById('dropzone-success').classList.add('hidden');
+            document.getElementById('ref-preview-box').classList.add('hidden');
+        }
+
+        // Populate left quickfill inputs from HTML page default static contents on startup
+        function populateInputsFromPreview() {
+            if (docMode === 'admin') {
+                document.getElementById('inp-subhead').value = document.getElementById('lbl-subhead').innerText.trim();
+                document.getElementById('inp-school').value = document.getElementById('lbl-school').innerText.trim();
+                document.getElementById('inp-docnumber').value = document.getElementById('lbl-docnumber').innerText.trim();
+                document.getElementById('inp-location').value = document.getElementById('lbl-location').innerText.trim();
+                document.getElementById('inp-signer-title').value = document.getElementById('lbl-signer-title').innerText.trim();
+                document.getElementById('inp-signer-name').value = document.getElementById('lbl-signer-name').innerText.trim();
+                
+                // Sync recipients text
+                let recLines = [];
+                const recContainer = document.getElementById('lbl-recipients');
+                for(let child of recContainer.children) {
+                    recLines.push(child.innerText.trim());
+                }
+                document.getElementById('inp-recipients').value = recLines.join('\n');
+            } else {
+                document.getElementById('inp-lesson-school').value = document.getElementById('lbl-lesson-school').innerText.trim();
+                document.getElementById('inp-lesson-dept').value = document.getElementById('lbl-lesson-dept').innerText.trim();
+                document.getElementById('inp-lesson-week').value = document.getElementById('lbl-lesson-week').innerText.trim();
+                document.getElementById('inp-lesson-period').value = document.getElementById('lbl-lesson-period').innerText.trim();
+                document.getElementById('inp-lesson-class').value = document.getElementById('lbl-lesson-class').innerText.trim();
+                document.getElementById('inp-lesson-prepdate').value = document.getElementById('lbl-lesson-prepdate').innerText.trim();
+                document.getElementById('inp-lesson-teacher').value = document.getElementById('lbl-lesson-teacher').innerText.trim();
+                document.getElementById('inp-lesson-approver').value = document.getElementById('lbl-lesson-approver').innerText.trim();
+            }
+
+            document.getElementById('inp-title').value = document.getElementById('lbl-title').innerText.trim().replace(/\n/g, ' ');
+        }
+
+        // Toggles layouts between administrative official format and educational lesson plan
+        function toggleDocMode(mode) {
+            docMode = mode;
+            
+            const btnAdmin = document.getElementById('mode-btn-admin');
+            const btnLesson = document.getElementById('mode-btn-lesson');
+            
+            const headerAdmin = document.getElementById('header-admin');
+            const headerLesson = document.getElementById('header-lesson');
+            
+            const footerAdmin = document.getElementById('footer-admin');
+            const footerLesson = document.getElementById('footer-lesson');
+            
+            const quickfillAdmin = document.getElementById('quickfill-admin-fields');
+            const quickfillLesson = document.getElementById('quickfill-lesson-fields');
+
+            if (mode === 'admin') {
+                btnAdmin.className = "px-3 py-1 rounded-md text-xs font-bold transition-all duration-200 bg-blue-600 text-white";
+                btnLesson.className = "px-3 py-1 rounded-md text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white";
+                
+                headerAdmin.classList.remove('hidden');
+                headerLesson.classList.add('hidden');
+                
+                footerAdmin.classList.remove('hidden');
+                footerLesson.classList.add('hidden');
+                
+                quickfillAdmin.classList.remove('hidden');
+                quickfillLesson.classList.add('hidden');
+                
+                showToast("Lớp Văn Bản Hành Chính", "Đã cấu hình bộ khung tài liệu về dạng hành chính chuẩn Nghị định 30.", "fa-scale-balanced");
+            } else {
+                btnLesson.className = "px-3 py-1 rounded-md text-xs font-bold transition-all duration-200 bg-purple-600 text-white";
+                btnAdmin.className = "px-3 py-1 rounded-md text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white";
+                
+                headerAdmin.classList.add('hidden');
+                headerLesson.classList.remove('hidden');
+                
+                footerAdmin.classList.add('hidden');
+                footerLesson.classList.remove('hidden');
+                
+                quickfillAdmin.classList.add('hidden');
+                quickfillLesson.classList.remove('hidden');
+                
+                showToast("Lớp Giáo Án / Bài Dạy", "Đã cấu hình định dạng giáo án chuyên nghiệp chuẩn phát triển năng lực.", "fa-book-open");
+            }
+            
+            populateInputsFromPreview();
+        }
+
+        // Handle dropdown selection to automatically toggle app layouts and adapt user choices
+        function handleAIDocTypeChange(val) {
+            if (val === 'Giáo án') {
+                toggleDocMode('lesson');
+            } else {
+                toggleDocMode('admin');
+            }
+            updateSuggestionPills(val);
+        }
+
+        // Dynamically changes suggestions in UI based on selected Document type
+        function updateSuggestionPills(type) {
+            const container = document.getElementById('suggestion-pills');
+            container.innerHTML = '';
+            
+            let pills = [];
+            if (type === 'Giáo án') {
+                pills = [
+                    { label: "📝 Bài dạy Tin học 10", text: "Giáo án bài 5 Tin học 10: Thực hành ứng dụng văn phòng với bảng tính, thời lượng 2 tiết" },
+                    { label: "📐 Giáo án Toán 11", text: "Giáo án môn Toán lớp 11: Chuyên đề Khái niệm đạo hàm, định hướng phát triển năng lực toán học" },
+                    { label: "🔬 Giáo án Vật lý 10", text: "Giáo án Vật lý lớp 10: Chuyển động thẳng biến đổi đều, phân bổ 2 tiết" },
+                    { label: "📜 Giáo án Lịch sử 10", text: "Giáo án Lịch sử 10: Bài văn minh Sông Hồng - Khởi dựng nhà nước Văn Lang, chú trọng học sinh thuyết trình nhóm" }
+                ];
+            } else {
+                pills = [
+                    { label: "📚 Ngày Hội Sách học đường", text: "Kế hoạch tổ chức Ngày Hội Sách học đường năm 2026, quyên góp sách cũ xây dựng thư viện xanh" },
+                    { label: "🖥️ Tờ trình mua bảng thông minh", text: "Tờ trình xin mua mới 05 chiếc bảng tương tác thông minh cho các lớp chất lượng cao" },
+                    { label: "⚖️ Quyết định lập hội đồng thi", text: "Quyết định thành lập Hội đồng Ban giám khảo cuộc thi Nghiên cứu khoa học kỹ thuật học sinh" },
+                    { label: "🏥 Công văn phối hợp y tế", text: "Công văn phối hợp với Trung tâm Y tế quận về việc tổ chức khám sức khỏe định kỳ cho học sinh toàn trường" }
+                ];
+            }
+
+            pills.forEach(pill => {
+                const btn = document.createElement('button');
+                btn.className = "text-[10px] bg-white border border-slate-200 hover:border-purple-300 text-slate-600 px-2 py-1 rounded-full text-left truncate max-w-full";
+                btn.onclick = () => setAIPromptNew(type, pill.text);
+                btn.innerText = pill.label;
+                container.appendChild(btn);
+            });
+        }
+
+        // Switch between Write New and Edit existing mode
+        function switchAIMode(mode) {
+            aiMode = mode;
+            const btnNew = document.getElementById('ai-mode-new');
+            const btnEdit = document.getElementById('ai-mode-edit');
+            const containerNew = document.getElementById('ai-container-new');
+            const containerEdit = document.getElementById('ai-container-edit');
+            const btnText = document.getElementById('ai-btn-text');
+
+            if(mode === 'new') {
+                btnNew.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+                btnNew.classList.remove('text-slate-500');
+                btnEdit.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+                btnEdit.classList.add('text-slate-500');
+                containerNew.classList.remove('hidden');
+                containerEdit.classList.add('hidden');
+                btnText.innerText = "Bắt Đầu Tạo Với Trợ Lý AI";
+            } else {
+                btnEdit.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+                btnEdit.classList.remove('text-slate-500');
+                btnNew.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+                btnNew.classList.add('text-slate-500');
+                containerNew.classList.add('hidden');
+                containerEdit.classList.remove('hidden');
+                btnText.innerText = "Chạy Chỉnh Sửa AI";
+            }
+        }
+
+        // Quick set prompts for New Mode
+        function setAIPromptNew(type, text) {
+            document.getElementById('ai-doc-type').value = type;
+            document.getElementById('ai-prompt-new').value = text;
+            handleAIDocTypeChange(type);
+            showToast("Nạp gợi ý nhanh", `Đã thiết lập thể loại "${type}" với ý tưởng giảng dạy/hành chính mẫu.`, "fa-lightbulb");
+        }
+
+        // Quick set prompts for Edit Mode
+        function setAIPromptEdit(text) {
+            document.getElementById('ai-prompt-edit').value = text;
+            showToast("Nạp chỉ dẫn nhanh", "Đã nạp câu chỉ dẫn chỉnh sửa vào ô yêu cầu.", "fa-lightbulb");
+        }
+
+        // Core API Call to Gemini with detailed instruction sets for Education & Decree 30 standard
+        async function triggerAIEngine() {
+            const promptNew = document.getElementById('ai-prompt-new').value.trim();
+            const promptEdit = document.getElementById('ai-prompt-edit').value.trim();
+            const docType = document.getElementById('ai-doc-type').value;
+            const customKey = document.getElementById('custom-api-key').value.trim();
+
+            if (aiMode === 'new' && !promptNew) {
+                showToast("Thiếu thông tin", "Thầy cô vui lòng nhập ý tưởng/chủ đề văn bản hoặc giáo án cần lập trước.", "fa-circle-question");
+                return;
+            }
+            if (aiMode === 'edit' && !promptEdit) {
+                showToast("Thiếu chỉ dẫn", "Thầy cô vui lòng nhập yêu cầu chỉnh sửa văn bản hoặc giáo án cần tối ưu.", "fa-circle-question");
+                return;
+            }
+
+            // Show Loading State
+            document.getElementById('ai-loading-overlay').classList.remove('hidden');
+            const origBtnText = document.getElementById('ai-btn-text').innerText;
+            document.getElementById('ai-btn-text').innerText = "Đang xử lý kết nối AI...";
+            document.getElementById('ai-generate-btn').disabled = true;
+
+            const apiKey = customKey; // Defaults to empty for Canvas framework auto-injection
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            try {
+                if (aiMode === 'new') {
+                    // Optimized prompt accommodating both administrative structures and full lesson plan pedagogical outlines
+                    const systemPrompt = `Bạn là trợ lý ảo soạn thảo văn bản học đường cao cấp, phục vụ đắc lực cho Ban giám hiệu và Giáo viên Việt Nam.
+Bạn có khả năng soạn thảo văn bản hành chính theo Nghị định 30/2020/NĐ-CP hoặc lập giáo án (bài dạy) có cấu trúc sư phạm khoa học định hướng phát triển năng lực mới của Bộ GD&ĐT.
+
+Dựa trên yêu cầu của người dùng, nếu loại tài liệu cần lập là "Giáo án", hãy biên soạn một giáo án đầy đủ chi tiết, trực quan với các phần mục chính quy định như sau:
+1. Mục tiêu (Kiến thức, Năng lực, Phẩm chất)
+2. Thiết bị dạy học và Học liệu
+3. Tiến trình dạy học chi tiết bao gồm các hoạt động học cụ thể (Khởi động, Khám phá tri thức, Luyện tập, Vận dụng). Biểu diễn tiến trình hoạt động rõ ràng, sư phạm, sử dụng định dạng bảng biểu HTML sạch nếu cần.
+
+Nhiệm vụ của bạn là phân tích loại tài liệu là "${docType}" và trả về một cấu trúc JSON chuẩn xác để chương trình hiển thị lên trang giấy.
+Cấu trúc JSON đầu ra phải tuân thủ nghiêm ngặt định dạng sau:
+{
+  "docMode": "Điền 'admin' nếu là Kế hoạch, Tờ trình, Quyết định, Công văn, Báo cáo... Hoặc điền 'lesson' nếu loại tài liệu là Giáo án",
+  "subhead": "TÊN CƠ QUAN CHỦ QUẢN (ví dụ: SỞ GIÁO DỤC VÀ ĐÀO TẠO HÀ NỘI) - CHỈ dùng nếu docMode là 'admin', nếu không hãy để rỗng",
+  "school": "TÊN TRƯỜNG/ĐƠN VỊ BAN HÀNH (ví dụ: TRƯỜNG THPT NGUYỄN DU) - Dùng cho cả 2 chế độ",
+  "dept": "Tên tổ chuyên môn (ví dụ: Tổ chuyên môn: Toán - Tin học) - CHỈ dùng nếu docMode là 'lesson', nếu không hãy để rỗng",
+  "docnumber": "Số hiệu văn bản chuẩn, ví dụ: Số: 124/KH-THPT hoặc Số: 56/QĐ-THPT - CHỈ dùng nếu docMode là 'admin', nếu không hãy để rỗng",
+  "week": "Tuần học, ví dụ: Tuần 12 - CHỈ dùng nếu docMode là 'lesson', nếu không hãy để rỗng",
+  "period": "Tiết PPCT, ví dụ: Tiết 24 - CHỈ dùng nếu docMode là 'lesson', nếu không hãy để rỗng",
+  "class": "Lớp học giảng dạy, ví dụ: Lớp 10A1, 10A2 - CHỈ dùng nếu docMode là 'lesson', nếu không hãy để rỗng",
+  "location": "Địa danh ban hành (ví dụ: Hà Nội) hoặc Ngày soạn đối với Giáo án (ví dụ: 18/10/2026)",
+  "title": "TIÊU ĐỀ CHÍNH VÀ TRÍCH YẾU NỘI DUNG (Ví dụ: KẾ HOẠCH<br>TỔ CHỨC TUẦN LỄ... hoặc GIÁO ÁN BÀI 1: KHÁI NIỆM THÔNG TIN)",
+  "body": "Nội dung thân bài đầy đủ chi tiết bằng mã HTML sạch. Sử dụng các đoạn <p class=\\"indent-[1.27cm]\\"> cho từng đoạn văn, thụt lề chuẩn. Sử dụng <p class=\\"font-bold mt-4\\"> cho đề mục I, II, III... Thiết kế thêm bảng biểu nhiệm vụ bằng mã HTML <table> chuẩn mực nếu cần. Nội dung phải viết chi tiết, cụ thể, dài và chất lượng cao, không dùng các văn bản mẫu chung chung.",
+  "signerTitle": "QUYỀN HẠN/CHỨC VỤ NGƯỜI KÝ (Ví dụ: HIỆU TRƯỞNG) - CHỈ dùng nếu docMode là 'admin'",
+  "signerName": "Họ và tên người ký (Ví dụ: ThS. Nguyễn Văn Thắng) - CHỈ dùng nếu docMode là 'admin'",
+  "recipients": "Nơi nhận, mỗi nơi nhận một dòng bắt đầu bằng dấu gạch ngang, ví dụ: - Sở GD&ĐT (để b/c);\\n- Ban Giám hiệu; - CHỈ dùng nếu docMode là 'admin'",
+  "lessonTeacher": "Họ tên giáo viên soạn dạy - CHỈ dùng nếu docMode là 'lesson'",
+  "lessonApprover": "Họ tên cán bộ/Tổ trưởng duyệt giáo án - CHỈ dùng nếu docMode là 'lesson'"
+}
+CHỈ TRẢ VỀ DUY NHẤT ĐỐI TƯỢNG JSON TRÊN, KHÔNG VIẾT CHỮ GÌ KHÁC NGOÀI JSON. KHÔNG BỌC TRONG BLOCK CODE MARKDOWN LẠ.`;
+
+                    let contentsPayload = [];
+                    let finalPrompt = `Hãy tạo văn bản/giáo án cho yêu cầu sau: ${promptNew}`;
+
+                    if (referenceSource.type === 'text' && referenceSource.data) {
+                        // For PDF and text files, inject the parsed text context into the prompt
+                        finalPrompt = `[BẮT BUỘC SỬ DỤNG TÀI LIỆU NGUỒN DẪN THAM KHẢO DƯỚI ĐÂY ĐỂ TRÍCH XUẤT THÔNG TIN VÀ BIÊN SOẠN CHUẨN XÁC]\n\nTên tài liệu nguồn: ${referenceSource.name}\nNội dung tài liệu nguồn:\n${referenceSource.data}\n\n[YÊU CẦU SOẠN THẢO CHÍNH]: Dựa trên nội dung của nguồn tài liệu tham khảo trên, hãy thực hiện yêu cầu sau đây: ${promptNew}`;
+                        contentsPayload.push({
+                            parts: [{ text: finalPrompt }]
+                        });
+                    } else if (referenceSource.type === 'image' && referenceSource.data) {
+                        // For image attachments, send it multimodally
+                        finalPrompt = `Dựa trên hình ảnh tài liệu tham khảo đính kèm, trích xuất tất cả nội dung cần thiết và thực hiện yêu cầu sau đây: ${promptNew}`;
+                        contentsPayload.push({
+                            role: 'user',
+                            parts: [
+                                { text: finalPrompt },
+                                {
+                                    inlineData: {
+                                        mimeType: referenceSource.mimeType,
+                                        data: referenceSource.data
+                                    }
+                                }
+                            ]
+                        });
+                    } else {
+                        // Standard generation without reference
+                        contentsPayload.push({
+                            parts: [{ text: finalPrompt }]
+                        });
+                    }
+
+                    const payload = {
+                        contents: contentsPayload,
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    docMode: { type: "STRING" },
+                                    subhead: { type: "STRING" },
+                                    school: { type: "STRING" },
+                                    dept: { type: "STRING" },
+                                    docnumber: { type: "STRING" },
+                                    week: { type: "STRING" },
+                                    period: { type: "STRING" },
+                                    class: { type: "STRING" },
+                                    location: { type: "STRING" },
+                                    title: { type: "STRING" },
+                                    body: { type: "STRING" },
+                                    signerTitle: { type: "STRING" },
+                                    signerName: { type: "STRING" },
+                                    recipients: { type: "STRING" },
+                                    lessonTeacher: { type: "STRING" },
+                                    lessonApprover: { type: "STRING" }
+                                },
+                                required: ["docMode", "school", "title", "body"]
+                            }
+                        },
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    };
+
+                    const response = await fetchWithRetry(apiUrl, payload);
+                    const result = await response.json();
+                    const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if(jsonText) {
+                        const parsed = JSON.parse(jsonText);
+                        
+                        // Switch document layouts visually to match AI output intent
+                        toggleDocMode(parsed.docMode);
+
+                        if (parsed.docMode === 'admin') {
+                            document.getElementById('lbl-subhead').innerHTML = parsed.subhead || "SỞ GIÁO DỤC VÀ ĐÀO TẠO";
+                            document.getElementById('lbl-school').innerHTML = parsed.school || "TRƯỜNG THPT CHUẨN";
+                            document.getElementById('lbl-docnumber').innerHTML = parsed.docnumber || "Số: .../KH-TH";
+                            document.getElementById('lbl-location').innerHTML = parsed.location || "Hà Nội";
+                            document.getElementById('lbl-signer-title').innerHTML = parsed.signerTitle || "HIỆU TRƯỞNG";
+                            document.getElementById('lbl-signer-name').innerHTML = parsed.signerName || "Nguyễn Văn A";
+                            
+                            // Load recipients in DOM
+                            const recContainer = document.getElementById('lbl-recipients');
+                            recContainer.innerHTML = '';
+                            if(parsed.recipients) {
+                                parsed.recipients.split('\n').forEach(line => {
+                                    if(line.trim()) {
+                                        const div = document.createElement('div');
+                                        div.innerText = line.trim();
+                                        recContainer.appendChild(div);
+                                    }
+                                });
+                            }
+                        } else {
+                            document.getElementById('lbl-lesson-school').innerHTML = parsed.school || "TRƯỜNG THPT NGUYỄN DU";
+                            document.getElementById('lbl-lesson-dept').innerHTML = parsed.dept || "Tổ chuyên môn: Toán - Tin học";
+                            document.getElementById('lbl-lesson-week').innerHTML = parsed.week || "Tuần 1";
+                            document.getElementById('lbl-lesson-period').innerHTML = parsed.period || "Tiết 1";
+                            document.getElementById('lbl-lesson-class').innerHTML = parsed.class || "Khối 10";
+                            document.getElementById('lbl-lesson-prepdate').innerHTML = parsed.location || "18/10/2026";
+                            document.getElementById('lbl-lesson-teacher').innerHTML = parsed.lessonTeacher || "Nguyễn Văn Thắng";
+                            document.getElementById('lbl-lesson-approver').innerHTML = parsed.lessonApprover || "Trần Thị Lan";
+                        }
+
+                        document.getElementById('lbl-title').innerHTML = parsed.title || "VĂN BẢN / GIÁO ÁN HỌC ĐƯỜNG";
+                        document.getElementById('document-body').innerHTML = parsed.body || "<p>Nội dung trống</p>";
+                        
+                        // Populate sidebar fields
+                        populateInputsFromPreview();
+                        showToast("AI Tạo Thành Công", "Cấu trúc văn bản / giáo án học đường chuẩn hóa đã được AI dựng thành công!", "fa-circle-check");
+                    } else {
+                        throw new Error("Không thể trích xuất kết quả từ mô hình AI.");
+                    }
+
+                } else {
+                    // Mode 2: AI Edit/Enhance existing text
+                    const currentBody = document.getElementById('document-body').innerHTML;
+                    
+                    const systemPrompt = `Bạn là biên tập viên văn thư và chuyên viên sư phạm giàu kinh nghiệm. Nhiệm vụ của bạn là nhận nội dung thân văn bản/giáo án hiện tại (dạng HTML) và tiến hành sửa đổi nó theo yêu cầu của giáo viên.
+Chỉ trả về đoạn mã HTML mới sạch sẽ, giữ nguyên các thẻ p với class "indent-[1.27cm]" và các định dạng đề mục, bảng biểu để tài liệu không bị hỏng cấu trúc. KHÔNG trả về định dạng markdown hay thẻ html/head/body bọc ngoài.`;
+
+                    let contentsPayload = [];
+                    let finalPrompt = `NỘI DUNG THÂN VĂN BẢN HIỆN TẠI:\n${currentBody}\n\nYÊU CẦU CHỈNH SỬA:\n${promptEdit}`;
+
+                    if (referenceSource.type === 'text' && referenceSource.data) {
+                        // Append reference document to edit prompt
+                        finalPrompt = `[BẮT BUỘC SỬ DỤNG TÀI LIỆU NGUỒN DẪN THAM KHẢO DƯỚI ĐÂY ĐỂ ĐỐI CHIẾU VÀ ĐIỀU CHỈNH CHUẨN XÁC]\nTên tài liệu nguồn: ${referenceSource.name}\nNội dung tài liệu nguồn:\n${referenceSource.data}\n\n${finalPrompt}`;
+                        contentsPayload.push({
+                            parts: [{ text: finalPrompt }]
+                        });
+                    } else if (referenceSource.type === 'image' && referenceSource.data) {
+                        // Multi-modal image edit processing
+                        finalPrompt = `Dựa trên hình ảnh tài liệu tham khảo đính kèm, thực hiện yêu cầu chỉnh sửa sau:\n\n${finalPrompt}`;
+                        contentsPayload.push({
+                            role: 'user',
+                            parts: [
+                                { text: finalPrompt },
+                                {
+                                    inlineData: {
+                                        mimeType: referenceSource.mimeType,
+                                        data: referenceSource.data
+                                    }
+                                }
+                            ]
+                        });
+                    } else {
+                        contentsPayload.push({
+                            parts: [{ text: finalPrompt }]
+                        });
+                    }
+
+                    const payload = {
+                        contents: contentsPayload,
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    };
+
+                    const response = await fetchWithRetry(apiUrl, payload);
+                    const result = await response.json();
+                    let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (responseText) {
+                        responseText = responseText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '');
+                        responseText = responseText.replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+
+                        document.getElementById('document-body').innerHTML = responseText;
+                        showToast("Chỉnh sửa thành công", "Văn bản/Giáo án đã được cập nhật thông minh bởi Trợ Lý AI!", "fa-wand-magic-sparkles");
+                    } else {
+                        throw new Error("Không phản hồi nội dung.");
+                    }
+                }
+            } catch (error) {
+                console.error("AI Error: ", error);
+                showToast("Lỗi kết nối AI", "Không thể hoàn thành yêu cầu. Vui lòng thử lại sau hoặc kiểm tra cài đặt API Key.", "fa-triangle-exclamation");
+            } finally {
+                // Remove Loading State
+                document.getElementById('ai-loading-overlay').classList.add('hidden');
+                document.getElementById('ai-btn-text').innerText = origBtnText;
+                document.getElementById('ai-generate-btn').disabled = false;
+            }
+        }
+
+        // Fetch with exponential backoff helper
+        async function fetchWithRetry(url, payload, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) return response;
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                }
+                await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+            }
+        }
+
+        // Zoom UI Functions
+        function zoomDoc(amount) {
+            currentZoom = Math.min(Math.max(0.5, currentZoom + amount), 1.5);
+            scaleWrapper.style.transform = `scale(${currentZoom})`;
+            zoomText.innerText = `${Math.round(currentZoom * 100)}%`;
+        }
+
+        function resetZoom() {
+            currentZoom = 1.0;
+            scaleWrapper.style.transform = `scale(1)`;
+            zoomText.innerText = "100%";
+        }
+
+        // Toggle margin borders
+        function toggleMargins() {
+            const paper = document.getElementById('paper');
+            const btn = document.getElementById('marginBtn');
+            paper.classList.toggle('show-margins');
+            if (paper.classList.contains('show-margins')) {
+                btn.classList.add('bg-blue-600', 'text-white');
+                btn.classList.remove('bg-slate-800', 'text-slate-300');
+                showToast("Bật định vị lề", "Khung lề A4 chuẩn hiển thị bằng nét đứt đỏ hỗ trợ canh chỉnh lề biên soạn.", "fa-border-all");
+            } else {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-slate-800', 'text-slate-300');
+            }
+        }
+
+        // Tab selection switcher
+        function switchTab(tabName) {
+            const tabs = ['ai', 'templates', 'quickfill', 'guide'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) {
+                    el.classList.remove('border-blue-600', 'text-blue-600');
+                    el.classList.add('border-transparent', 'text-slate-500');
+                }
+                const panel = document.getElementById(`panel-${t}`);
+                if (panel) {
+                    panel.classList.add('hidden');
+                }
+            });
+
+            const activeTab = document.getElementById(`tab-${tabName}`);
+            if (activeTab) {
+                activeTab.classList.remove('border-transparent', 'text-slate-500');
+                activeTab.classList.add('border-blue-600', 'text-blue-600');
+            }
+            const activePanel = document.getElementById(`panel-${tabName}`);
+            if (activePanel) {
+                activePanel.classList.remove('hidden');
+            }
+        }
+
+        // Execute Rich Text Command
+        function formatDoc(command) {
+            document.execCommand(command, false, null);
+            showToast("Đã định dạng", "Thay đổi định dạng được áp dụng cho vùng lựa chọn.", "fa-wand-magic-sparkles");
+        }
+
+        // Insert custom tables
+        function insertTable() {
+            const tableHTML = `
+                <table class="w-full border-collapse border border-black my-4 text-[13pt] text-left">
+                    <thead>
+                        <tr class="bg-slate-100">
+                            <th class="border border-black p-2 text-center font-bold w-1/12">STT</th>
+                            <th class="border border-black p-2 font-bold">Nội dung công việc / Hoạt động</th>
+                            <th class="border border-black p-2 font-bold w-3/12">Đơn vị / Bộ phận</th>
+                            <th class="border border-black p-2 font-bold w-2/12">Tiến độ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-black p-2 text-center">1</td>
+                            <td class="border border-black p-2" contenteditable="true">Nhập chi tiết nội dung...</td>
+                            <td class="border border-black p-2" contenteditable="true">Phụ trách...</td>
+                            <td class="border border-black p-2 text-center" contenteditable="true">Tuần học...</td>
+                        </tr>
+                        <tr>
+                            <td class="border border-black p-2 text-center">2</td>
+                            <td class="border border-black p-2" contenteditable="true">Nhập chi tiết nội dung...</td>
+                            <td class="border border-black p-2" contenteditable="true">Phụ trách...</td>
+                            <td class="border border-black p-2 text-center" contenteditable="true">Tuần học...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            
+            const sel = window.getSelection();
+            if (sel.getRangeAt && sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                const docBody = document.getElementById('document-body');
+                
+                if (docBody.contains(range.commonAncestorContainer)) {
+                    range.deleteContents();
+                    const el = document.createElement("div");
+                    el.innerHTML = tableHTML;
+                    const frag = document.createDocumentFragment();
+                    let node, lastNode;
+                    while ( (node = el.firstChild) ) {
+                        lastNode = frag.appendChild(node);
+                    }
+                    range.insertNode(frag);
+                    showToast("Chèn bảng", "Bảng biểu mẫu đã được chèn thành công tại vị trí con trỏ.", "fa-table");
+                } else {
+                    docBody.innerHTML += tableHTML;
+                    showToast("Chèn bảng", "Đã chèn bảng biểu mẫu vào cuối văn bản.", "fa-table");
+                }
+            } else {
+                document.getElementById('document-body').innerHTML += tableHTML;
+                showToast("Chèn bảng", "Đã chèn bảng biểu mẫu vào cuối văn bản.", "fa-table");
+            }
+        }
+
+        // Live update Preview when Form inputs are edited
+        function syncField(fieldId, value) {
+            if (fieldId === 'title') {
+                document.getElementById('lbl-title').innerHTML = value.replace(/\n/g, '<br>');
+                return;
+            }
+            const lbl = document.getElementById(`lbl-${fieldId}`);
+            if (lbl) {
+                lbl.innerText = value;
+            }
+        }
+
+        // Synchronize Lesson Plan Specific values
+        function syncLessonField(fieldId, value) {
+            const lbl = document.getElementById(`lbl-lesson-${fieldId}`);
+            if (lbl) {
+                lbl.innerText = value;
+            }
+        }
+
+        // Sync Date components
+        function syncDate(dateVal) {
+            if(!dateVal) return;
+            const d = new Date(dateVal);
+            document.getElementById('lbl-day').innerText = String(d.getDate()).padStart(2, '0');
+            document.getElementById('lbl-month').innerText = String(d.getMonth() + 1).padStart(2, '0');
+            document.getElementById('lbl-year').innerText = d.getFullYear();
+        }
+
+        // Sync recipients block
+        function syncRecipients(text) {
+            const lines = text.split('\n');
+            const container = document.getElementById('lbl-recipients');
+            container.innerHTML = '';
+            
+            lines.forEach(line => {
+                if(line.trim() !== '') {
+                    let formattedLine = line.trim();
+                    if (!formattedLine.startsWith('-')) {
+                        formattedLine = '- ' + formattedLine;
+                    }
+                    const div = document.createElement('div');
+                    div.innerText = formattedLine;
+                    container.appendChild(div);
+                }
+            });
+        }
+
+        // Built-in Education-Oriented standard Vietnamese school templates and lesson plans
+        const templates = {
+            giaoan: {
+                docMode: "lesson",
+                school: "TRƯỜNG THCS PHƯƠNG THIỆN",
+                dept: "Tổ chuyên môn: Toán - Tin học",
+                week: "Tuần học: Tuần 12",
+                period: "Tiết PPCT: Tiết 24",
+                class: "Lớp giảng dạy: 8A1",
+                prepdate: "Ngày soạn: 18/10/2026",
+                title: "GIÁO ÁN BÀI 5: KHÁI NIỆM MÔ HÌNH THÔNG TIN VÀ KIẾN TRÚC MẠNG MÁY TÍNH (2 TIẾT)",
+                body: `
+                    <p class="font-bold mt-4">I. MỤC TIÊU BÀI HỌC</p>
+                    <p class="indent-[1.27cm]"><strong>1. Về kiến thức:</strong> Học sinh phát biểu được khái niệm mô hình thông tin, cấu trúc cơ bản của mạng máy tính, phân loại mạng và hiểu cơ bản cách vận hành của kiến trúc phân tầng Internet.</p>
+                    <p class="indent-[1.27cm]"><strong>2. Về năng lực:</strong> Phát triển năng lực giải quyết vấn đề với sự hỗ trợ của CNTT; tự học độc lập nghiên cứu tài liệu và năng lực hợp tác nhóm thông qua thực hành lắp đặt mô phỏng sơ đồ mạng LAN.</p>
+                    <p class="indent-[1.27cm]"><strong>3. Về phẩm chất:</strong> Chăm chỉ chủ động tìm hiểu bài học, có tinh thần trách nhiệm bảo vệ tài nguyên mạng chung và trung thực trong việc làm bài kiểm tra.</p>
+
+                    <p class="font-bold mt-4">II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU</p>
+                    <p class="indent-[1.27cm]"><strong>1. Giáo viên:</strong> Máy chiếu, slide bài giảng, mô hình Hub/Switch thực tế, máy tính kết nối mạng, phiếu học tập thảo luận nhóm.</p>
+                    <p class="indent-[1.27cm]"><strong>2. Học sinh:</strong> Sách giáo khoa Tin học 8, vở ghi chép cá nhân, thiết bị di động thông minh để quét mã tham gia trò chơi tương tác trực tuyến.</p>
+
+                    <p class="font-bold mt-4">III. TIẾN TRÌNH DẠY HỌC</p>
+                    <p class="font-bold mt-2 text-[13pt] text-indigo-800">Hoạt động 1: Khởi động (10 phút) - Trò chơi "Ai nhanh mắt hơn"</p>
+                    <p class="indent-[1.27cm]"><i>a) Mục tiêu:</i> Kích thích hứng thú học tập, khảo sát kiến thức nền của học sinh về các thiết bị kết nối mạng thông dụng xung quanh ta tại trường THCS Phương Thiện.</p>
+                    <p class="indent-[1.27cm]"><i>b) Nội dung và tiến trình:</i> Giáo viên chiếu sơ đồ kết nối mạng gia đình đơn giản có chứa các thiết bị ẩn tên. Học sinh thảo luận theo bàn trong 3 phút, ghi tên các thiết bị tương ứng vào bảng phụ.</p>
+                    <p class="indent-[1.27cm]"><i>c) Sản phẩm:</i> Đáp án ghi đúng tên Router Wifi, Dây cáp mạng, Máy tính cá nhân, Smartphone của học sinh.</p>
+                    <p class="indent-[1.27cm]"><i>d) Đánh giá:</i> Giáo viên tuyên dương bàn hoàn thành nhanh nhất, nhận xét chung dẫn dắt vào bài mới.</p>
+
+                    <p class="font-bold mt-2 text-[13pt] text-indigo-800">Hoạt động 2: Hình thành kiến thức mới (45 phút) - Khái niệm mạng máy tính</p>
+                    <table class="w-full border-collapse border border-black my-4 text-[13pt]">
+                        <thead>
+                            <tr class="bg-slate-100">
+                                <th class="border border-black p-2 text-center font-bold w-1/3">Hoạt động của Giáo viên</th>
+                                <th class="border border-black p-2 text-center font-bold w-1/3">Hoạt động của Học sinh</th>
+                                <th class="border border-black p-2 text-center font-bold w-1/3">Nội dung ghi bài trọng tâm</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-black p-2">Giáo viên tổ chức kỹ thuật mảnh ghép: Chia lớp làm 4 nhóm nghiên cứu 4 bộ phận chính cấu thành mạng máy tính.</td>
+                                <td class="border border-black p-2">Nhóm trưởng nhận phiếu học tập, phân công thành viên đọc SGK, thảo luận tổng hợp ý kiến ra giấy A0.</td>
+                                <td class="border border-black p-2"><strong>1. Thành phần mạng gồm:</strong> Thiết bị đầu cuối (máy tính, máy in), Thiết bị kết nối (Switch, AP), Phần mềm mạng.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p class="font-bold mt-2 text-[13pt] text-indigo-800">Hoạt động 3: Luyện tập (25 phút)</p>
+                    <p class="indent-[1.27cm]">Thiết kế sơ đồ tư duy phân loại mạng máy tính theo phạm vi địa lý (LAN, WAN, Toàn cầu) trên giấy vẽ của nhóm học sinh.</p>
+                `,
+                teacher: "Nguyễn Thanh Hà",
+                approver: "Trần Thị Lan"
+            },
+            kehoach: {
+                docMode: "admin",
+                subhead: "UBND PHƯỜNG HÀ GIANG 1",
+                school: "TRƯỜNG THCS PHƯƠNG THIỆN",
+                docnumber: "Số: 145/KH-THCS",
+                location: "Hà Giang",
+                title: "KẾ HOẠCH<br>TỔ CHỨC HOẠT ĐỘNG NGOẠI KHÓA GIÁO DỤC KỸ NĂNG SỐNG CHO HỌC SINH TRƯỜNG THCS PHƯƠNG THIỆN NĂM HỌC 2026 - 2027",
+                body: `
+                    <p class="indent-[1.27cm]">Căn cứ Chỉ thị nhiệm vụ năm học của Bộ Giáo dục và Đào tạo và các văn bản chỉ đạo của Phòng Giáo dục và Đào tạo thành phố Hà Giang;</p>
+                    <p class="indent-[1.27cm]">Căn cứ vào tình hình thực tế và mục tiêu đào tạo, rèn luyện kỹ năng mềm cho học sinh toàn diện;</p>
+                    <p class="indent-[1.27cm]">Ban Giám hiệu Trường THCS Phương Thiện xây dựng kế hoạch triển khai cụ thể hoạt động như sau:</p>
+                    
+                    <p class="font-bold mt-4">I. MỤC ĐÍCH, YÊU CẦU</p>
+                    <p class="indent-[1.27cm]"><strong>1. Mục đích:</strong> Nâng cao khả năng ứng xử xã hội, kỹ năng tự vệ, tinh thần làm việc nhóm và kiến thức thực tiễn cuộc sống cho học sinh toàn trường.</p>
+                    <p class="indent-[1.27cm]"><strong>2. Yêu cầu:</strong> 100% các lớp tham gia đầy đủ, bảo đảm an toàn tuyệt đối, tiết kiệm, ý nghĩa và bổ ích.</p>
+
+                    <p class="font-bold mt-4">II. NỘI DUNG VÀ THỜI GIAN THỰC HIỆN</p>
+                    <table class="w-full border-collapse border border-black my-4 text-[13pt]">
+                        <thead>
+                            <tr class="bg-slate-50">
+                                <th class="border border-black p-2 text-center font-bold w-1/12">STT</th>
+                                <th class="border border-black p-2 text-center font-bold w-5/12">Nội dung công việc</th>
+                                <th class="border border-black p-2 text-center font-bold w-3/12">Người chịu trách nhiệm</th>
+                                <th class="border border-black p-2 text-center font-bold w-3/12">Tiến độ thực hiện</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-black p-2 text-center">1</td>
+                                <td class="border border-black p-2">Lập ban tổ chức chương trình ngoại khóa</td>
+                                <td class="border border-black p-2">Phó Hiệu trưởng chuyên môn</td>
+                                <td class="border border-black p-2 text-center">Tuần 1 tháng 11</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-black p-2 text-center">2</td>
+                                <td class="border border-black p-2">Thuê chuyên gia kỹ năng sống & chuẩn bị cơ sở vật chất</td>
+                                <td class="border border-black p-2">Liên đội trường, Tổ Giám Thị</td>
+                                <td class="border border-black p-2 text-center">Trước ngày 15/11</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p class="font-bold mt-4">III. TỔ CHỨC THỰC HIỆN</p>
+                    <p class="indent-[1.27cm]">Nhà trường đề nghị các Tổ trưởng chuyên môn, Giáo viên chủ nhiệm các lớp đôn đốc học sinh tham gia nghiêm túc, lập danh sách nộp về Văn phòng trường trước kỳ hạn.</p>
+                `,
+                signerTitle: "HIỆU TRƯỞNG",
+                signerName: "Nguyễn Thanh Hà",
+                recipients: "- UBND Phường Hà Giang 1 (để b/c);\n- Ban Giám hiệu;\n- Liên đội trường;\n- GVCN các lớp;\n- Lưu: VT, VP trường."
+            },
+            totrinh: {
+                docMode: "admin",
+                subhead: "TRƯỜNG THCS PHƯƠNG THIỆN",
+                school: "TỔ CHUYÊN MÔN TIN HỌC",
+                docnumber: "Số: 12/TTr-TH",
+                location: "Hà Giang",
+                title: "TỜ TRÌNH<br>Về việc nâng cấp, bổ sung trang thiết bị phòng máy thực hành tin học",
+                body: `
+                    <p class="indent-[1.27cm]">Kính gửi: Ban Giám hiệu Trường THCS Phương Thiện.</p>
+                    <p class="indent-[1.27cm]">Căn cứ vào nhiệm vụ đổi mới phương pháp giảng dạy ứng dụng công nghệ thông tin và chuyển đổi số trường học trong năm học mới;</p>
+                    <p class="indent-[1.27cm]">Căn cứ vào thực trạng cơ sở vật chất tại phòng máy số 1 hiện nay đang xuống cấp nghiêm trọng (hơn 10 máy hỏng RAM, màn hình mờ nhòe không đảm bảo điều kiện học tập);</p>
+                    <p class="indent-[1.27cm]">Tổ chuyên môn Tin học kính trình lên Ban Giám hiệu đề xuất phương án nâng cấp như sau:</p>
+                    
+                    <p class="font-bold mt-4">I. NỘI DUNG ĐỀ XUẤT MUA SẮM</p>
+                    <table class="w-full border-collapse border border-black my-4 text-[13pt]">
+                        <thead>
+                            <tr class="bg-slate-50">
+                                <th class="border border-black p-2 text-center font-bold w-1/12">STT</th>
+                                <th class="border border-black p-2 text-center font-bold w-4/12">Tên thiết bị đề xuất</th>
+                                <th class="border border-black p-2 text-center font-bold w-2/12">Số lượng</th>
+                                <th class="border border-black p-2 text-center font-bold w-3/12">Ước lượng đơn giá</th>
+                                <th class="border border-black p-2 text-center font-bold w-2/12">Ghi chú</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-black p-2 text-center">1</td>
+                                <td class="border border-black p-2">Ram DDR4 8GB Kingston</td>
+                                <td class="border border-black p-2 text-center">10 chiếc</td>
+                                <td class="border border-black p-2 text-right">450.000đ</td>
+                                <td class="border border-black p-2">Nâng cấp máy yếu</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-black p-2 text-center">2</td>
+                                <td class="border border-black p-2">Màn hình LCD LG 24-inch</td>
+                                <td class="border border-black p-2 text-center">5 chiếc</td>
+                                <td class="border border-black p-2 text-right">2.200.000đ</td>
+                                <td class="border border-black p-2">Thay màn hình hỏng</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p class="font-bold mt-4">II. KINH PHÍ DỰ KIẾN</p>
+                    <p class="indent-[1.27cm]">Tổng dự trù kinh phí đề nghị cấp phát: <strong>15.500.000 đồng</strong> <i>(Mười lăm triệu năm trăm nghìn đồng chẵn).</i></p>
+                    <p class="indent-[1.27cm]">Kính mong Ban Giám hiệu nhà trường xem xét và phê duyệt tạo điều kiện thuận lợi nhất để phục vụ cho các học sinh THCS Phương Thiện ôn luyện sắp tới.</p>
+                `,
+                signerTitle: "TỔ TRƯỞNG CHUYÊN MÔN",
+                signerName: "Nguyễn Thanh Hà",
+                recipients: "- Ban Giám hiệu (để duyệt);\n- Bộ phận Kế toán;\n- Lưu: Văn phòng Tổ."
+            },
+            quyetdinh: {
+                docMode: "admin",
+                subhead: "UBND PHƯỜNG HÀ GIANG 1",
+                school: "TRƯỜNG THCS PHƯƠNG THIỆN",
+                docnumber: "Số: 94/QĐ-THCS",
+                location: "Hà Giang",
+                title: "QUYẾT ĐỊNH<br>Về việc thành lập Ban Giám sát phong trào nề nếp thi đua khối học sinh năm học 2026 - 2027",
+                body: `
+                    <p class="indent-[1.27cm] font-bold text-center">HIỆU TRƯỞNG TRƯỜNG THCS PHƯƠNG THIỆN</p>
+                    <p class="indent-[1.27cm] italic">Căn cứ Điều lệ Trường trung học cơ sở, trường trung học phổ thông có nhiều cấp học ban hành theo Thông tư hiện hành;</p>
+                    <p class="indent-[1.27cm] italic">Xét đề nghị của Liên đội trường THCS Phương Thiện và Tổ trưởng Tổ Giám thị;</p>
+                    
+                    <p class="font-bold text-center my-4 uppercase text-[15pt]">QUYẾT ĐỊNH:</p>
+                    
+                    <p class="indent-[1.27cm]"><strong>Điều 1.</strong> Thành lập Ban Giám sát phong trào nề nếp thi đua khối học sinh trường THCS Phương Thiện năm học 2026 - 2027 gồm các ông (bà) có tên trong danh sách đính kèm.</p>
+                    <p class="indent-[1.27cm]"><strong>Điều 2.</strong> Ban Giám sát có nhiệm vụ thường xuyên tuần tra, chấm điểm thi đua, kịp thời phát hiện và chấn chỉnh hành vi vi phạm kỷ luật của học sinh các khối lớp.</p>
+                    <p class="indent-[1.27cm]"><strong>Điều 3.</strong> Các phòng ban, bộ phận phục vụ, đại diện GVCN các lớp và các cá nhân có tên tại Điều 1 chịu trách nhiệm thi hành Quyết định này kể từ ngày ký ban hành.</p>
+                `,
+                signerTitle: "HIỆU TRƯỞNG",
+                signerName: "Nguyễn Thanh Hà",
+                recipients: "- Như Điều 3 (để thực hiện);\n- Ban Giám hiệu;\n- Công đoàn trường;\n- Lưu: VT, VP."
+            },
+            congvan: {
+                docMode: "admin",
+                subhead: "UBND PHƯỜNG HÀ GIANG 1",
+                school: "TRƯỜNG THCS PHƯƠNG THIỆN",
+                docnumber: "Số: 218/CV-THCS",
+                location: "Hà Giang",
+                title: "CÔNG VĂN<br>Về việc Triệu tập cuộc họp Liên tịch lấy ý kiến hoàn thiện quy chế thi đua",
+                body: `
+                    <p class="indent-[1.27cm] font-bold">Kính gửi: Toàn thể cán bộ, giáo viên và nhân viên trường THCS Phương Thiện.</p>
+                    <p class="indent-[1.27cm]">Thực hiện quy định thực hành dân chủ, công khai tài chính trong cơ sở giáo dục và lấy ý kiến đồng thuận hoàn thiện Quy chế thi đua khen thưởng năm học mới;</p>
+                    <p class="indent-[1.27cm]">Hiệu trưởng nhà trường triệu tập toàn thể cán bộ tham gia cuộc họp cụ thể như sau:</p>
+                    
+                    <p class="indent-[1.27cm]"><strong>1. Nội dung:</strong> Báo cáo dự thảo thi đua, định mức khen thưởng giáo viên đạt thành tích xuất sắc và thảo luận ngoài giờ hành chính.</p>
+                    <p class="indent-[1.27cm]"><strong>2. Thời gian:</strong> Đúng 14h00 ngày 25 tháng 10 năm 2026.</p>
+                    <p class="indent-[1.27cm]"><strong>3. Địa điểm:</strong> Hội trường tầng 2 - Trường THCS Phương Thiện.</p>
+                    <p class="indent-[1.27cm]">Yêu cầu các Tổ trưởng chuyên môn hoàn thành việc tổng hợp đề xuất trước từ các tổ chuyên trách và cử đại diện phát biểu ý kiến để phiên họp diễn ra khẩn trương, đạt kết quả tốt nhất.</p>
+                `,
+                signerTitle: "HIỆU TRƯỞNG",
+                signerName: "Nguyễn Thanh Hà",
+                recipients: "- Toàn thể CB-GV-NV;\n- Ban Giám hiệu;\n- Công đoàn trường;\n- Lưu: VT."
+            }
+        };
+
+        // Load a specific document template dynamically
+        function loadTemplate(templateKey) {
+            const data = templates[templateKey];
+            if (!data) return;
+
+            toggleDocMode(data.docMode);
+
+            if (data.docMode === 'admin') {
+                document.getElementById('lbl-subhead').innerHTML = data.subhead;
+                document.getElementById('lbl-school').innerHTML = data.school;
+                document.getElementById('lbl-docnumber').innerHTML = data.docnumber;
+                document.getElementById('lbl-location').innerHTML = data.location;
+                document.getElementById('lbl-signer-title').innerHTML = data.signerTitle;
+                document.getElementById('lbl-signer-name').innerHTML = data.signerName;
+                
+                // Format and load Recipients in DOM
+                const recContainer = document.getElementById('lbl-recipients');
+                recContainer.innerHTML = '';
+                const lines = data.recipients.split('\n');
+                lines.forEach(line => {
+                    const div = document.createElement('div');
+                    div.innerText = line;
+                    recContainer.appendChild(div);
+                });
+            } else {
+                document.getElementById('lbl-lesson-school').innerHTML = data.school;
+                document.getElementById('lbl-lesson-dept').innerHTML = data.dept;
+                document.getElementById('lbl-lesson-week').innerHTML = data.week;
+                document.getElementById('lbl-lesson-period').innerHTML = data.period;
+                document.getElementById('lbl-lesson-class').innerHTML = data.class;
+                document.getElementById('lbl-lesson-prepdate').innerHTML = data.prepdate;
+                document.getElementById('lbl-lesson-teacher').innerHTML = data.teacher;
+                document.getElementById('lbl-lesson-approver').innerHTML = data.approver;
+            }
+
+            document.getElementById('lbl-title').innerHTML = data.title;
+            document.getElementById('document-body').innerHTML = data.body;
+
+            // Refresh form fields in the sidebar to match the newly selected template
+            populateInputsFromPreview();
+
+            showToast("Đã tải biểu mẫu", `Cấu trúc mẫu "${templateKey === 'giaoan' ? 'Giáo án' : 'Hành chính'}" mới đã được nạp thành công.`, "fa-file-invoice");
+        }
+
+        // Save Current Document Draft to LocalStorage
+        function saveToDrafts() {
+            try {
+                const draft = {
+                    id: 'edu_draft_' + Date.now(),
+                    time: new Date().toLocaleString('vi-VN'),
+                    docMode: docMode,
+                    title: document.getElementById('lbl-title').innerHTML,
+                    body: document.getElementById('document-body').innerHTML,
+                    
+                    // Admin metadata
+                    subhead: document.getElementById('lbl-subhead').innerText,
+                    school: document.getElementById('lbl-school').innerText,
+                    docnumber: document.getElementById('lbl-docnumber').innerText,
+                    location: document.getElementById('lbl-location').innerText,
+                    signerTitle: document.getElementById('lbl-signer-title').innerText,
+                    signerName: document.getElementById('lbl-signer-name').innerText,
+                    recipients: document.getElementById('lbl-recipients').innerHTML,
+
+                    // Lesson plan metadata
+                    lessonSchool: document.getElementById('lbl-lesson-school').innerText,
+                    lessonDept: document.getElementById('lbl-lesson-dept').innerText,
+                    lessonWeek: document.getElementById('lbl-lesson-week').innerText,
+                    lessonPeriod: document.getElementById('lbl-lesson-period').innerText,
+                    lessonClass: document.getElementById('lbl-lesson-class').innerText,
+                    lessonPrepdate: document.getElementById('lbl-lesson-prepdate').innerText,
+                    lessonTeacher: document.getElementById('lbl-lesson-teacher').innerText,
+                    lessonApprover: document.getElementById('lbl-lesson-approver').innerText
+                };
+
+                let savedDrafts = JSON.parse(localStorage.getItem('edu_docs_drafts') || '[]');
+                if(savedDrafts.length >= 5) {
+                    savedDrafts.shift();
+                }
+                savedDrafts.push(draft);
+                localStorage.setItem('edu_docs_drafts', JSON.stringify(savedDrafts));
+                
+                loadSavedDraftsList();
+                showToast("Lưu bản nháp thành công", "Bản nháp hiện tại đã lưu trữ an toàn trong trình duyệt của bạn.", "fa-floppy-disk");
+            } catch (e) {
+                showToast("Lỗi lưu trữ", "Có lỗi xảy ra khi lưu trữ bản nháp.", "fa-triangle-exclamation");
+            }
+        }
+
+        // Render drafts history inside sidebar list
+        function loadSavedDraftsList() {
+            const savedDrafts = JSON.parse(localStorage.getItem('edu_docs_drafts') || '[]');
+            const container = document.getElementById('draftContainer');
+            const list = document.getElementById('draftsList');
+            
+            if (savedDrafts.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            list.innerHTML = '';
+
+            savedDrafts.reverse().forEach(draft => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-white p-2 rounded border border-slate-200 shadow-sm";
+                
+                let shortTitle = draft.title.replace(/<br>/g, ' ').substring(0, 30) + '...';
+                let tagColor = draft.docMode === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+                let tagName = draft.docMode === 'admin' ? 'HC' : 'GA';
+
+                div.innerHTML = `
+                    <div class="cursor-pointer hover:text-blue-600 flex-1 min-w-0 mr-2" onclick="recoverDraft('${draft.id}')">
+                        <span class="font-semibold text-[11px] truncate block flex items-center gap-1.5" title="${draft.title.replace(/<br>/g, ' ')}">
+                            <span class="text-[8px] font-bold px-1 py-0.5 rounded ${tagColor}">${tagName}</span>
+                            <span>${shortTitle}</span>
+                        </span>
+                        <span class="text-[9px] text-slate-400 block">${draft.time}</span>
+                    </div>
+                    <button onclick="deleteDraft('${draft.id}')" class="text-red-500 hover:bg-red-50 p-1.5 rounded transition shrink-0" title="Xóa bản nháp này">
+                        <i class="fa-regular fa-trash-can text-[11px]"></i>
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // Recover selected Draft content into paper canvas
+        function recoverDraft(draftId) {
+            const savedDrafts = JSON.parse(localStorage.getItem('edu_docs_drafts') || '[]');
+            const draft = savedDrafts.find(d => d.id === draftId);
+            if (!draft) return;
+
+            toggleDocMode(draft.docMode || 'admin');
+
+            document.getElementById('lbl-title').innerHTML = draft.title;
+            document.getElementById('document-body').innerHTML = draft.body;
+
+            if (draft.docMode === 'admin') {
+                document.getElementById('lbl-subhead').innerHTML = draft.subhead || "";
+                document.getElementById('lbl-school').innerHTML = draft.school || "";
+                document.getElementById('lbl-docnumber').innerHTML = draft.docnumber || "";
+                document.getElementById('lbl-location').innerHTML = draft.location || "";
+                document.getElementById('lbl-signer-title').innerHTML = draft.signerTitle || "";
+                document.getElementById('lbl-signer-name').innerHTML = draft.signerName || "";
+                document.getElementById('lbl-recipients').innerHTML = draft.recipients || "";
+            } else {
+                document.getElementById('lbl-lesson-school').innerHTML = draft.lessonSchool || "TRƯỜNG THPT NGUYỄN DU";
+                document.getElementById('lbl-lesson-dept').innerHTML = draft.lessonDept || "Tổ chuyên môn: Toán - Tin học";
+                document.getElementById('lbl-lesson-week').innerHTML = draft.lessonWeek || "Tuần 1";
+                document.getElementById('lbl-lesson-period').innerHTML = draft.lessonPeriod || "Tiết 1";
+                document.getElementById('lbl-lesson-class').innerHTML = draft.lessonClass || "Khối 10";
+                document.getElementById('lbl-lesson-prepdate').innerHTML = draft.lessonPrepdate || "18/10/2026";
+                document.getElementById('lbl-lesson-teacher').innerHTML = draft.lessonTeacher || "Nguyễn Văn Thắng";
+                document.getElementById('lbl-lesson-approver').innerHTML = draft.lessonApprover || "Trần Thị Lan";
+            }
+
+            populateInputsFromPreview();
+            showToast("Phục hồi thành công", `Đã khôi phục bản nháp học đường ngày ${draft.time}`, "fa-clock-rotate-left");
+        }
+
+        // Delete specific draft item
+        function deleteDraft(draftId) {
+            let savedDrafts = JSON.parse(localStorage.getItem('edu_docs_drafts') || '[]');
+            savedDrafts = savedDrafts.filter(d => d.id !== draftId);
+            localStorage.setItem('edu_docs_drafts', JSON.stringify(savedDrafts));
+            loadSavedDraftsList();
+            showToast("Đã xóa bản nháp", "Đã gỡ bản nháp đã chọn khỏi bộ nhớ trình duyệt.", "fa-trash-can");
+        }
+
+        // Print/Export to PDF Engine using OS native print
+        function exportToPDF() {
+            // Turn off margins representation line so it looks premium and clean
+            const paper = document.getElementById('paper');
+            paper.classList.remove('show-margins');
+            document.getElementById('marginBtn').classList.remove('bg-blue-600', 'text-white');
+            document.getElementById('marginBtn').classList.add('bg-slate-800', 'text-slate-300');
+
+            resetZoom();
+            window.print();
+        }
+
+        // Custom modern non-blocking Toast feedback
+        let toastTimeout;
+        function showToast(title, msg, iconClass = "fa-bell") {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-message').innerText = msg;
+            icon.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+
+            clearTimeout(toastTimeout);
+            
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
